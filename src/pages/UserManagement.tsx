@@ -1,104 +1,98 @@
 import { useState } from "react";
+import { useData } from "../contexts/DataContext";
+import { useAuth } from "../contexts/AuthContext";
 import UserForm from "../components/UserForm";
 import UserTable from "../components/UserTable";
 
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  status: "Aktiv" | "Inaktiv";
-}
-
 function UserManagement() {
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: 1,
-      name: "Max Mustermann",
-      email: "max@example.com",
-      role: "Admin",
-      status: "Aktiv",
-    },
-    {
-      id: 2,
-      name: "Anna Schmidt",
-      email: "anna@example.com",
-      role: "User",
-      status: "Aktiv",
-    },
-    {
-      id: 3,
-      name: "Tom Weber",
-      email: "tom@example.com",
-      role: "User",
-      status: "Inaktiv",
-    },
-    {
-      id: 4,
-      name: "Lisa Müller",
-      email: "lisa@example.com",
-      role: "User",
-      status: "Aktiv",
-    },
-  ]);
+  const { users, updateUser, deleteUser, addUser } = useData();
+  const { permissions } = useAuth();
+  const [editingUser, setEditingUser] = useState<any>(null);
 
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  // Nur Admin darf hier rein - doppelte Absicherung
+  if (!permissions?.canViewAllUsers) {
+    return (
+      <div className="container">
+        <h1>⛔ Zugriff verweigert</h1>
+        <p>Du hast keine Berechtigung für diese Seite.</p>
+      </div>
+    );
+  }
 
-  const addUser = (name: string, email: string, role: string) => {
-    const newUser: User = {
-      id: users.length + 1,
+  const handleAddUser = (
+    name: string,
+    email: string,
+    username: string,
+    password: string,
+    role: string
+  ) => {
+    const newUser = {
+      id: Math.max(...users.map((u) => u.id), 0) + 1,
       name,
       email,
-      role,
-      status: "Aktiv",
+      password,
+      role: role as any,
+      status: "Aktiv" as const,
+      assignedAssets: [],
     };
-    setUsers([...users, newUser]);
+    addUser(newUser);
   };
 
-  const updateUser = (
+  const handleUpdateUser = (
     id: number,
     name: string,
     email: string,
+    username: string,
+    password: string | undefined,
     role: string
   ) => {
-    setUsers(
-      users.map((user) =>
-        user.id === id ? { ...user, name, email, role } : user
-      )
-    );
+    const userToUpdate = users.find((u) => u.id === id);
+    if (userToUpdate) {
+      const updatedUser = {
+        ...userToUpdate,
+        name,
+        email,
+        role: role as any,
+        // Nur Passwort updaten wenn es angegeben wurde
+        ...(password && password.trim() !== "" ? { password } : {}),
+      };
+      updateUser(updatedUser);
+    }
     setEditingUser(null);
   };
 
-  const deleteUser = (id: number) => {
-    setUsers(users.filter((user) => user.id !== id));
+  const handleToggleStatus = (id: number) => {
+    const user = users.find((u) => u.id === id);
+    if (user) {
+      updateUser({
+        ...user,
+        status: user.status === "Aktiv" ? "Inaktiv" : "Aktiv",
+      });
+    }
   };
 
-  const toggleStatus = (id: number) => {
-    setUsers(
-      users.map((user) =>
-        user.id === id
-          ? { ...user, status: user.status === "Aktiv" ? "Inaktiv" : "Aktiv" }
-          : user
-      )
-    );
+  const handleDeleteUser = (id: number) => {
+    if (window.confirm("User wirklich löschen?")) {
+      deleteUser(id);
+    }
   };
 
   return (
     <div className="container">
-      <h1>Benutzerverwaltung</h1>
+      <h1>👥 Benutzerverwaltung</h1>
 
       <UserForm
-        onAddUser={addUser}
-        onUpdateUser={updateUser}
+        onAddUser={handleAddUser}
+        onUpdateUser={handleUpdateUser}
         editingUser={editingUser}
         onCancelEdit={() => setEditingUser(null)}
       />
 
       <UserTable
         users={users}
-        onDelete={deleteUser}
+        onDelete={handleDeleteUser}
         onEdit={setEditingUser}
-        onToggleStatus={toggleStatus}
+        onToggleStatus={handleToggleStatus}
       />
     </div>
   );

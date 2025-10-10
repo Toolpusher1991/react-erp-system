@@ -21,7 +21,6 @@ function EditWorkOrderModal({
   const { currentUser, permissions } = useAuth();
   const { addComment, comments, addNotification, notifications } = useData();
 
-  // Sicherheits-Check: Wenn workOrder nicht existiert, schließe Modal
   useEffect(() => {
     if (!workOrder) {
       console.error("EditWorkOrderModal: workOrder is undefined");
@@ -29,14 +28,12 @@ function EditWorkOrderModal({
     }
   }, [workOrder, onClose]);
 
-  // State mit Fallback-Werten
   const [status, setStatus] = useState(workOrder?.status || "Neu");
   const [priority, setPriority] = useState(workOrder?.priority || "Normal");
   const [assignedTo, setAssignedTo] = useState<number | undefined>(
     workOrder?.assignedTo
   );
 
-  // Wenn workOrder nicht existiert, zeige nichts
   if (!workOrder) {
     return null;
   }
@@ -100,39 +97,98 @@ function EditWorkOrderModal({
 
     newComments.forEach((comment) => addComment(comment));
 
-    // Erstelle Notifications für relevante User
-    const notificationsToCreate: number[] = [];
+    // ========== NOTIFICATION LOGIK - VERBESSERT ==========
 
-    if (workOrder.assignedTo && workOrder.assignedTo !== currentUser.id) {
-      notificationsToCreate.push(workOrder.assignedTo);
-    }
+    // 1. Status-Änderung → Benachrichtige Techniker + Ersteller
+    if (status !== workOrder.status) {
+      const usersToNotify = new Set<number>();
 
-    if (workOrder.createdBy !== currentUser.id) {
-      notificationsToCreate.push(workOrder.createdBy);
-    }
-
-    notificationsToCreate.forEach((userId) => {
-      let message = "";
-
-      if (status !== workOrder.status) {
-        message = `Status geändert: ${workOrder.status} → ${status}`;
-      } else if (priority !== workOrder.priority) {
-        message = `Priorität geändert: ${workOrder.priority} → ${priority}`;
-      } else if (assignedTo !== workOrder.assignedTo) {
-        message = `Neuer Techniker zugewiesen: ${assignedUser?.name}`;
+      if (workOrder.assignedTo && workOrder.assignedTo !== currentUser.id) {
+        usersToNotify.add(workOrder.assignedTo);
+      }
+      if (workOrder.createdBy !== currentUser.id) {
+        usersToNotify.add(workOrder.createdBy);
       }
 
-      if (message) {
+      usersToNotify.forEach((userId) => {
         const notification = {
           id: Math.max(...notifications.map((n) => n.id), 0) + 1,
           userId,
-          type:
-            status !== workOrder.status
-              ? ("status_change" as const)
-              : ("assignment" as const),
+          type: "status_change" as const,
           workOrderId: workOrder.id,
           workOrderTitle: workOrder.title,
-          message,
+          message: `Status geändert: ${workOrder.status} → ${status}`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          createdBy: currentUser.id,
+          createdByName: currentUser.name,
+        };
+        addNotification(notification);
+      });
+    }
+
+    // 2. Priorität-Änderung → Benachrichtige Techniker + Ersteller
+    if (priority !== workOrder.priority) {
+      const usersToNotify = new Set<number>();
+
+      if (workOrder.assignedTo && workOrder.assignedTo !== currentUser.id) {
+        usersToNotify.add(workOrder.assignedTo);
+      }
+      if (workOrder.createdBy !== currentUser.id) {
+        usersToNotify.add(workOrder.createdBy);
+      }
+
+      usersToNotify.forEach((userId) => {
+        const notification = {
+          id: Math.max(...notifications.map((n) => n.id), 0) + 1,
+          userId,
+          type: "status_change" as const,
+          workOrderId: workOrder.id,
+          workOrderTitle: workOrder.title,
+          message: `Priorität geändert: ${workOrder.priority} → ${priority}`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          createdBy: currentUser.id,
+          createdByName: currentUser.name,
+        };
+        addNotification(notification);
+      });
+    }
+
+    // 3. Zuweisung → Benachrichtige NEU zugewiesenen Techniker + Ersteller
+    if (assignedTo !== workOrder.assignedTo && assignedTo) {
+      console.log("🔔 Erstelle Zuweisung-Notification für User:", assignedTo);
+
+      // Benachrichtige den NEU zugewiesenen Techniker (nicht sich selbst)
+      if (assignedTo !== currentUser.id) {
+        const notification = {
+          id: Math.max(...notifications.map((n) => n.id), 0) + 1,
+          userId: assignedTo,
+          type: "assignment" as const,
+          workOrderId: workOrder.id,
+          workOrderTitle: workOrder.title,
+          message: `Dir wurde Work Order zugewiesen von ${currentUser.name}`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          createdBy: currentUser.id,
+          createdByName: currentUser.name,
+        };
+        console.log("📧 Notification erstellt:", notification);
+        addNotification(notification);
+      }
+
+      // Benachrichtige auch den Ersteller (falls nicht current user)
+      if (
+        workOrder.createdBy !== currentUser.id &&
+        workOrder.createdBy !== assignedTo
+      ) {
+        const notification = {
+          id: Math.max(...notifications.map((n) => n.id), 0) + 2,
+          userId: workOrder.createdBy,
+          type: "assignment" as const,
+          workOrderId: workOrder.id,
+          workOrderTitle: workOrder.title,
+          message: `${assignedUser?.name} wurde Work Order zugewiesen`,
           createdAt: new Date().toISOString(),
           read: false,
           createdBy: currentUser.id,
@@ -140,7 +196,7 @@ function EditWorkOrderModal({
         };
         addNotification(notification);
       }
-    });
+    }
 
     const updatedWO: WorkOrder = {
       ...workOrder,
