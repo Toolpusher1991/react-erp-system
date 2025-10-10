@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useData } from "../contexts/DataContext"; // NEU!
 import { filterAssetsForUser } from "../utils/permissions";
 import type { Asset } from "../types";
 
@@ -7,49 +7,8 @@ function AssetManagement() {
   // Hole currentUser aus AuthContext
   const { currentUser } = useAuth();
 
-  // State: Liste aller Anlagen - START mit deinen 4 Bohranlagen
-  const [assets] = useState<Asset[]>([
-    {
-      id: 1,
-      name: "T207",
-      type: "Bohranlage",
-      status: "Betrieb",
-      location: "Feld Nord",
-      serialNumber: "BA-T207-2023",
-      assignedUsers: [],
-      notes: "Hauptbohranlage Standort Nord",
-    },
-    {
-      id: 2,
-      name: "T208",
-      type: "Bohranlage",
-      status: "Betrieb",
-      location: "Feld Nord",
-      serialNumber: "BA-T208-2023",
-      assignedUsers: [],
-      notes: "Hauptbohranlage Standort Nord",
-    },
-    {
-      id: 3,
-      name: "T700",
-      type: "Bohranlage",
-      status: "Wartung",
-      location: "Feld Ost",
-      serialNumber: "BA-T700-2022",
-      assignedUsers: [],
-      notes: "Geplante Wartung bis Ende des Monats",
-    },
-    {
-      id: 4,
-      name: "T46",
-      type: "Bohranlage",
-      status: "Betrieb",
-      location: "Feld Süd",
-      serialNumber: "BA-T46-2021",
-      assignedUsers: [],
-      notes: "Älteste Anlage im Betrieb",
-    },
-  ]);
+  // Hole assets aus DataContext statt lokalem State
+  const { assets } = useData();
 
   // Filtere Assets basierend auf User-Rechten
   const visibleAssets = currentUser

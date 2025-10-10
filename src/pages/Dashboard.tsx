@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useData } from "../contexts/DataContext"; // NEU!
 import UserManagement from "./UserManagement";
 import AssetManagement from "./AssetManagement";
 import WorkOrderManagement from "./WorkOrderManagement";
@@ -12,6 +13,20 @@ function Dashboard() {
   // Hole currentUser und logout aus AuthContext
   const { currentUser, logout } = useAuth();
 
+  // Hole resetAllData aus DataContext
+  const { resetAllData } = useData();
+
+  const handleReset = () => {
+    if (
+      window.confirm(
+        "⚠️ Alle Daten werden auf Initial-Werte zurückgesetzt. Fortfahren?"
+      )
+    ) {
+      resetAllData();
+      alert("✅ Daten wurden zurückgesetzt!");
+    }
+  };
+
   return (
     <div>
       {/* Logout Header */}
@@ -22,9 +37,18 @@ function Dashboard() {
           </span>
           <span className="user-role">({currentUser?.role})</span>
         </div>
-        <button onClick={logout} className="logout-btn">
-          🚪 Abmelden
-        </button>
+        <div style={{ display: "flex", gap: "1rem" }}>
+          <button
+            onClick={handleReset}
+            className="logout-btn"
+            style={{ background: "#f59e0b" }}
+          >
+            🔄 Daten zurücksetzen
+          </button>
+          <button onClick={logout} className="logout-btn">
+            🚪 Abmelden
+          </button>
+        </div>
       </div>
 
       {/* Navigation */}

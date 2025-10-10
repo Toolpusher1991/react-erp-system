@@ -1,223 +1,22 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useData } from "../contexts/DataContext"; // NEU!
 import { canAccessAsset } from "../utils/permissions";
 import CreateWorkOrderModal from "../components/CreateWorkOrderModal";
-import EditWorkOrderModal from "../components/EditWorkOrderModal"; // ← NEU
-import type { WorkOrder, Asset, User } from "../types"; // ← User hinzugefügt
+import EditWorkOrderModal from "../components/EditWorkOrderModal";
+import type { WorkOrder } from "../types";
 
 function WorkOrderManagement() {
   const { currentUser } = useAuth();
 
-  // Assets State
-  const [assets] = useState<Asset[]>([
-    {
-      id: 1,
-      name: "T207",
-      type: "Bohranlage",
-      status: "Betrieb",
-      location: "Feld Nord",
-      serialNumber: "BA-T207-2023",
-      assignedUsers: [],
-    },
-    {
-      id: 2,
-      name: "T208",
-      type: "Bohranlage",
-      status: "Betrieb",
-      location: "Feld Nord",
-      serialNumber: "BA-T208-2023",
-      assignedUsers: [],
-    },
-    {
-      id: 3,
-      name: "T700",
-      type: "Bohranlage",
-      status: "Wartung",
-      location: "Feld Ost",
-      serialNumber: "BA-T700-2022",
-      assignedUsers: [],
-    },
-    {
-      id: 4,
-      name: "T46",
-      type: "Bohranlage",
-      status: "Betrieb",
-      location: "Feld Süd",
-      serialNumber: "BA-T46-2021",
-      assignedUsers: [],
-    },
-  ]);
-
-  // ========== NEU: Users für Zuweisung ==========
-  const [users] = useState<User[]>([
-    {
-      id: 1,
-      name: "Max Admin",
-      email: "admin@erp.de",
-      password: "admin123",
-      role: "Admin",
-      status: "Aktiv",
-      assignedAssets: [],
-    },
-    {
-      id: 2,
-      name: "Anna E-Super",
-      email: "esuper@erp.de",
-      password: "es123",
-      role: "E-Supervisor",
-      status: "Aktiv",
-      assignedAssets: [],
-    },
-    {
-      id: 3,
-      name: "Tom M-Super",
-      email: "msuper@erp.de",
-      password: "ms123",
-      role: "M-Supervisor",
-      status: "Aktiv",
-      assignedAssets: [],
-    },
-    {
-      id: 6,
-      name: "Sarah RSC",
-      email: "rsc@erp.de",
-      password: "rsc123",
-      role: "RSC",
-      status: "Aktiv",
-      assignedAssets: [],
-    },
-    {
-      id: 10,
-      name: "T207 Elektriker",
-      email: "t207-el",
-      password: "t207",
-      role: "Elektriker",
-      status: "Aktiv",
-      assignedAssets: [1],
-    },
-    {
-      id: 11,
-      name: "T207 Mechaniker",
-      email: "t207-mech",
-      password: "t207",
-      role: "Mechaniker",
-      status: "Aktiv",
-      assignedAssets: [1],
-    },
-    {
-      id: 12,
-      name: "T208 Elektriker",
-      email: "t208-el",
-      password: "t208",
-      role: "Elektriker",
-      status: "Aktiv",
-      assignedAssets: [2],
-    },
-    {
-      id: 13,
-      name: "T208 Mechaniker",
-      email: "t208-mech",
-      password: "t208",
-      role: "Mechaniker",
-      status: "Aktiv",
-      assignedAssets: [2],
-    },
-    {
-      id: 14,
-      name: "T700 Elektriker",
-      email: "t700-el",
-      password: "t700",
-      role: "Elektriker",
-      status: "Aktiv",
-      assignedAssets: [3],
-    },
-    {
-      id: 15,
-      name: "T700 Mechaniker",
-      email: "t700-mech",
-      password: "t700",
-      role: "Mechaniker",
-      status: "Aktiv",
-      assignedAssets: [3],
-    },
-    {
-      id: 16,
-      name: "T46 Elektriker",
-      email: "t46-el",
-      password: "t46",
-      role: "Elektriker",
-      status: "Aktiv",
-      assignedAssets: [4],
-    },
-    {
-      id: 17,
-      name: "T46 Mechaniker",
-      email: "t46-mech",
-      password: "t46",
-      role: "Mechaniker",
-      status: "Aktiv",
-      assignedAssets: [4],
-    },
-  ]);
-  // ==============================================
-
-  // Work Orders State
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([
-    {
-      id: 1,
-      title: "Motor überhitzt",
-      description:
-        "Motor auf T207 läuft zu heiß, Kühlung prüfen. Temperatur steigt über 90°C. Sofortige Prüfung erforderlich.",
-      assetId: 1,
-      assetName: "T207",
-      type: "Mechanisch",
-      priority: "Hoch",
-      status: "In Arbeit",
-      createdBy: 2,
-      createdByName: "Anna E-Super",
-      assignedTo: 11,
-      assignedToName: "T207 Mechaniker",
-      createdAt: "2025-10-10T08:30:00",
-      updatedAt: "2025-10-10T09:15:00",
-    },
-    {
-      id: 2,
-      title: "Elektrischer Ausfall Pumpe",
-      description:
-        "Pumpe auf T208 reagiert nicht, Verkabelung prüfen. Sicherung mehrfach ausgelöst.",
-      assetId: 2,
-      assetName: "T208",
-      type: "Elektrisch",
-      priority: "Kritisch",
-      status: "Zugewiesen",
-      createdBy: 3,
-      createdByName: "Tom M-Super",
-      assignedTo: 12,
-      assignedToName: "T208 Elektriker",
-      createdAt: "2025-10-10T10:00:00",
-      updatedAt: "2025-10-10T10:00:00",
-    },
-    {
-      id: 3,
-      title: "Hydraulikschlauch undicht",
-      description:
-        "Kleines Leck am Hydraulikschlauch, austauschen. Leichte Verschmutzung durch austretendes Öl.",
-      assetId: 3,
-      assetName: "T700",
-      type: "Hydraulisch",
-      priority: "Normal",
-      status: "Neu",
-      createdBy: 6,
-      createdByName: "Sarah RSC",
-      createdAt: "2025-10-10T11:30:00",
-      updatedAt: "2025-10-10T11:30:00",
-    },
-  ]);
+  // Hole Daten aus DataContext statt lokalem State
+  const { assets, users, workOrders, addWorkOrder, updateWorkOrder } =
+    useData();
 
   // Modal States
   const [selectedWO, setSelectedWO] = useState<WorkOrder | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingWO, setEditingWO] = useState<WorkOrder | null>(null); // ← NEU
+  const [editingWO, setEditingWO] = useState<WorkOrder | null>(null);
 
   // Filter State
   const [filterStatus, setFilterStatus] = useState<string>("Alle");
@@ -242,16 +41,12 @@ function WorkOrderManagement() {
       ...newWO,
       id: newId,
     };
-    setWorkOrders([...workOrders, workOrderWithId]);
+    addWorkOrder(workOrderWithId); // Verwendet DataContext
   };
 
-  // ========== NEU: Update Funktion ==========
   const handleUpdateWorkOrder = (updatedWO: WorkOrder) => {
-    setWorkOrders(
-      workOrders.map((wo) => (wo.id === updatedWO.id ? updatedWO : wo))
-    );
+    updateWorkOrder(updatedWO); // Verwendet DataContext
   };
-  // ==========================================
 
   // Style Funktionen
   const getPriorityColor = (priority: WorkOrder["priority"]) => {
@@ -510,7 +305,6 @@ function WorkOrderManagement() {
             </div>
 
             <div className="wo-detail-footer">
-              {/* GEÄNDERT: onClick Handler */}
               <button
                 className="btn-wo-edit"
                 onClick={() => {
@@ -540,7 +334,7 @@ function WorkOrderManagement() {
         />
       )}
 
-      {/* ========== NEU: Edit Modal ========== */}
+      {/* Edit Modal */}
       {editingWO && (
         <EditWorkOrderModal
           workOrder={editingWO}
@@ -549,7 +343,6 @@ function WorkOrderManagement() {
           onUpdateWorkOrder={handleUpdateWorkOrder}
         />
       )}
-      {/* ===================================== */}
     </div>
   );
 }

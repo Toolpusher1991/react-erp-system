@@ -1,9 +1,10 @@
 // ==========================================
-// AUTH CONTEXT
+// AUTH CONTEXT - MIT LOCALSTORAGE
 // ==========================================
 // Verwaltet den eingeloggten User und seine Rechte global
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 import type { User, Permissions } from "../types";
 import { getPermissionsForRole } from "../utils/permissions";
 
@@ -20,8 +21,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Provider Component: Umhüllt die ganze App
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // State: Speichert den aktuellen User
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // State: Speichert den aktuellen User IN LOCALSTORAGE
+  const [currentUser, setCurrentUser] = useLocalStorage<User | null>(
+    "maintaIn_currentUser",
+    null
+  );
 
   // Berechne Permissions basierend auf der User-Rolle
   // Wenn kein User eingeloggt → permissions = null
@@ -29,12 +33,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ? getPermissionsForRole(currentUser.role)
     : null;
 
-  // Login-Funktion: Setzt den User
+  // Login-Funktion: Setzt den User (wird automatisch in localStorage gespeichert)
   const login = (user: User) => {
     setCurrentUser(user);
   };
 
-  // Logout-Funktion: Entfernt den User
+  // Logout-Funktion: Entfernt den User (wird automatisch aus localStorage gelöscht)
   const logout = () => {
     setCurrentUser(null);
   };
