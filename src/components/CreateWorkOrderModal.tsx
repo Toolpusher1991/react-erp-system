@@ -1,36 +1,91 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useData } from "../contexts/DataContext";
 import { filterAssetsForUser } from "../utils/permissions";
-import type { WorkOrder, WorkOrderType, WorkOrderPriority } from "../types";
+import type {
+  Asset,
+  WorkOrder,
+  WorkOrderType,
+  WorkOrderPriority,
+  User,
+} from "../types";
 
 interface CreateWorkOrderModalProps {
+  assets: Asset[];
+  users: User[];
   onClose: () => void;
+  onCreateWorkOrder: (workOrder: Omit<WorkOrder, "id">) => void;
 }
 
-function CreateWorkOrderModal({ onClose }: CreateWorkOrderModalProps) {
+function CreateWorkOrderModal({
+  assets,
+  users,
+  onClose,
+  onCreateWorkOrder,
+}: CreateWorkOrderModalProps) {
   const { currentUser } = useAuth();
-  const { assets, addWorkOrder } = useData();
 
   // Nur Anlagen zeigen, die der User sehen darf
   const visibleAssets = currentUser
     ? filterAssetsForUser(currentUser, assets)
     : [];
 
+  // Nur Techniker zur Auswahl (Mechaniker, Elektriker)
+  const availableUsers = users.filter(
+    (u) => u.role === "Mechaniker" || u.role === "Elektriker"
+  );
+
   // Form State
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [assetId, setAssetId] = useState<number>(0);
+  const [assetId, setAssetId] = useState<number>(visibleAssets[0]?.id || 0);
   const [type, setType] = useState<WorkOrderType>("Mechanisch");
   const [priority, setPriority] = useState<WorkOrderPriority>("Normal");
+  const [assignedTo, setAssignedTo] = useState<number | undefined>(undefined);
   const [error, setError] = useState("");
 
-  // Setze initiale Asset-ID wenn Assets geladen sind
-  useEffect(() => {
-    if (visibleAssets.length > 0 && assetId === 0) {
-      setAssetId(visibleAssets[0].id);
-    }
-  }, [visibleAssets, assetId]);
+  // Material-Felder
+  const [materialRequired, setMaterialRequired] = useState(false);
+  const [materialNumber, setMaterialNumber] = useState("");
+  const [materialDescription, setMaterialDescription] = useState("");
+
+  // ========== NEU: Bilder-State ==========
+  const [images, setImages] = useState<string[]>([]);
+
+  // Funktion: Bild hochladen und in Base64 konvertieren
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file) => {
+      // Max 5 Bilder
+      if (images.length >= 5) {
+        setError("Maximal 5 Bilder erlaubt");
+        return;
+      }
+
+      // Nur Bilder erlauben
+      if (!file.type.startsWith("image/")) {
+        setError("Nur Bilddateien erlaubt");
+        return;
+      }
+
+      // Max 5MB pro Bild
+      if (file.size > 5 * 1024 * 1024) {
+        setError("Bild zu groß (max 5MB)");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImages((prev) => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setImages(images.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,74 +99,57 @@ function CreateWorkOrderModal({ onClose }: CreateWorkOrderModalProps) {
       setError("Bitte eine Beschreibung eingeben");
       return;
     }
-    if (!assetId || assetId === 0) {
+    if (!assetId) {
       setError("Bitte eine Anlage auswählen");
       return;
     }
-    if (!currentUser) {
-      setError("Kein User eingeloggt");
+
+    // Material-Validierung
+    if (materialRequired && !materialDescription.trim()) {
+      setError(
+        "Bitte Material-Beschreibung eingeben wenn Material benötigt wird"
+      );
       return;
     }
 
     // Finde Asset Name
     const selectedAsset = assets.find((a) => a.id === assetId);
-    if (!selectedAsset) {
-      setError("Ausgewählte Anlage nicht gefunden");
-      return;
-    }
+    if (!selectedAsset || !currentUser) return;
+
+    // Finde zugewiesenen User
+    const assignedUser = assignedTo
+      ? users.find((u) => u.id === assignedTo)
+      : undefined;
 
     // Erstelle neuen Work Order
-    const newWorkOrder: WorkOrder = {
-      id: Date.now(), // Einfache ID-Generierung mit Timestamp
+    const newWorkOrder: Omit<WorkOrder, "id"> = {
       title: title.trim(),
       description: description.trim(),
       assetId,
       assetName: selectedAsset.name,
       type,
       priority,
-      status: "Neu",
+      status: assignedTo ? "Zugewiesen" : "Neu",
       createdBy: currentUser.id,
       createdByName: currentUser.name,
+      assignedTo,
+      assignedToName: assignedUser?.name,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      // Material-Felder
+      materialRequired,
+      materialStatus: materialRequired ? "Benötigt" : "Nicht benötigt",
+      materialNumber: materialRequired ? materialNumber.trim() : undefined,
+      materialDescription: materialRequired
+        ? materialDescription.trim()
+        : undefined,
+      // Bilder
+      images: images.length > 0 ? images : undefined,
     };
 
-    try {
-      addWorkOrder(newWorkOrder);
-      onClose();
-    } catch (err) {
-      console.error("Fehler beim Erstellen des Work Orders:", err);
-      setError("Fehler beim Speichern. Bitte erneut versuchen.");
-    }
+    onCreateWorkOrder(newWorkOrder);
+    onClose();
   };
-
-  // Wenn keine Assets verfügbar, zeige Warnung
-  if (visibleAssets.length === 0) {
-    return (
-      <>
-        <div className="wo-modal-overlay" onClick={onClose} />
-        <div className="wo-create-modal">
-          <div className="wo-create-header">
-            <h2>🎫 Neuer Work Order</h2>
-            <button onClick={onClose} className="btn-close-modal">
-              ✕
-            </button>
-          </div>
-          <div className="wo-create-body">
-            <div className="create-error">
-              ⚠️ Keine Anlagen verfügbar. Bitte kontaktiere deinen
-              Administrator.
-            </div>
-          </div>
-          <div className="wo-create-footer">
-            <button onClick={onClose} className="btn-create-cancel">
-              Schließen
-            </button>
-          </div>
-        </div>
-      </>
-    );
-  }
 
   return (
     <>
@@ -134,10 +172,7 @@ function CreateWorkOrderModal({ onClose }: CreateWorkOrderModalProps) {
                 type="text"
                 placeholder="z.B. Motor überhitzt"
                 value={title}
-                onChange={(e) => {
-                  setTitle(e.target.value);
-                  setError(""); // Lösche Fehler beim Tippen
-                }}
+                onChange={(e) => setTitle(e.target.value)}
                 autoFocus
               />
             </div>
@@ -147,10 +182,7 @@ function CreateWorkOrderModal({ onClose }: CreateWorkOrderModalProps) {
               <textarea
                 placeholder="Detaillierte Beschreibung des Problems..."
                 value={description}
-                onChange={(e) => {
-                  setDescription(e.target.value);
-                  setError("");
-                }}
+                onChange={(e) => setDescription(e.target.value)}
                 rows={4}
               />
             </div>
@@ -159,12 +191,8 @@ function CreateWorkOrderModal({ onClose }: CreateWorkOrderModalProps) {
               <label>Anlage *</label>
               <select
                 value={assetId}
-                onChange={(e) => {
-                  setAssetId(Number(e.target.value));
-                  setError("");
-                }}
+                onChange={(e) => setAssetId(Number(e.target.value))}
               >
-                {assetId === 0 && <option value={0}>-- Bitte wählen --</option>}
                 {visibleAssets.map((asset) => (
                   <option key={asset.id} value={asset.id}>
                     {asset.name} - {asset.location}
@@ -201,6 +229,93 @@ function CreateWorkOrderModal({ onClose }: CreateWorkOrderModalProps) {
                   <option value="Kritisch">🚨 Kritisch</option>
                 </select>
               </div>
+            </div>
+
+            {/* Zuweisung direkt beim Erstellen */}
+            <div className="form-group">
+              <label>Zuweisen an (optional)</label>
+              <select
+                value={assignedTo || ""}
+                onChange={(e) =>
+                  setAssignedTo(
+                    e.target.value ? Number(e.target.value) : undefined
+                  )
+                }
+              >
+                <option value="">Noch nicht zuweisen</option>
+                {availableUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name} ({user.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Material-Management */}
+            <div className="form-group">
+              <label
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={materialRequired}
+                  onChange={(e) => setMaterialRequired(e.target.checked)}
+                  style={{ width: "auto", margin: 0 }}
+                />
+                Material benötigt
+              </label>
+            </div>
+
+            {materialRequired && (
+              <>
+                <div className="form-group">
+                  <label>SAP-Materialnummer (optional)</label>
+                  <input
+                    type="text"
+                    placeholder="z.B. MAT-001-COOLER"
+                    value={materialNumber}
+                    onChange={(e) => setMaterialNumber(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Material-Beschreibung *</label>
+                  <textarea
+                    placeholder="z.B. Kühlmittel 20L für Motor"
+                    value={materialDescription}
+                    onChange={(e) => setMaterialDescription(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* ========== NEU: Bild-Upload ========== */}
+            <div className="form-group">
+              <label>📷 Bilder hinzufügen (max 5, je max 5MB)</label>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageUpload}
+                style={{ padding: "0.5rem" }}
+              />
+              {images.length > 0 && (
+                <div className="image-preview-container">
+                  {images.map((img, index) => (
+                    <div key={index} className="image-preview">
+                      <img src={img} alt={`Preview ${index + 1}`} />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="btn-remove-image"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

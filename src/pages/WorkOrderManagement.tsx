@@ -1,14 +1,227 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useData } from "../contexts/DataContext";
 import { canAccessAsset } from "../utils/permissions";
 import CreateWorkOrderModal from "../components/CreateWorkOrderModal";
 import EditWorkOrderModal from "../components/EditWorkOrderModal";
-import type { WorkOrder } from "../types";
+import type { WorkOrder, Asset, User } from "../types";
 
 function WorkOrderManagement() {
   const { currentUser } = useAuth();
-  const { workOrders, updateWorkOrder, users } = useData();
+
+  // Assets State
+  const [assets] = useState<Asset[]>([
+    {
+      id: 1,
+      name: "T207",
+      type: "Bohranlage",
+      status: "Betrieb",
+      location: "Feld Nord",
+      serialNumber: "BA-T207-2023",
+      assignedUsers: [],
+    },
+    {
+      id: 2,
+      name: "T208",
+      type: "Bohranlage",
+      status: "Betrieb",
+      location: "Feld Nord",
+      serialNumber: "BA-T208-2023",
+      assignedUsers: [],
+    },
+    {
+      id: 3,
+      name: "T700",
+      type: "Bohranlage",
+      status: "Wartung",
+      location: "Feld Ost",
+      serialNumber: "BA-T700-2022",
+      assignedUsers: [],
+    },
+    {
+      id: 4,
+      name: "T46",
+      type: "Bohranlage",
+      status: "Betrieb",
+      location: "Feld Süd",
+      serialNumber: "BA-T46-2021",
+      assignedUsers: [],
+    },
+  ]);
+
+  // Users für Zuweisung
+  const [users] = useState<User[]>([
+    {
+      id: 1,
+      name: "Max Admin",
+      email: "admin@erp.de",
+      password: "admin123",
+      role: "Admin",
+      status: "Aktiv",
+      assignedAssets: [],
+    },
+    {
+      id: 2,
+      name: "Anna E-Super",
+      email: "esuper@erp.de",
+      password: "es123",
+      role: "E-Supervisor",
+      status: "Aktiv",
+      assignedAssets: [],
+    },
+    {
+      id: 3,
+      name: "Tom M-Super",
+      email: "msuper@erp.de",
+      password: "ms123",
+      role: "M-Supervisor",
+      status: "Aktiv",
+      assignedAssets: [],
+    },
+    {
+      id: 6,
+      name: "Sarah RSC",
+      email: "rsc@erp.de",
+      password: "rsc123",
+      role: "RSC",
+      status: "Aktiv",
+      assignedAssets: [],
+    },
+    {
+      id: 10,
+      name: "T207 Elektriker",
+      email: "t207-el",
+      password: "t207",
+      role: "Elektriker",
+      status: "Aktiv",
+      assignedAssets: [1],
+    },
+    {
+      id: 11,
+      name: "T207 Mechaniker",
+      email: "t207-mech",
+      password: "t207",
+      role: "Mechaniker",
+      status: "Aktiv",
+      assignedAssets: [1],
+    },
+    {
+      id: 12,
+      name: "T208 Elektriker",
+      email: "t208-el",
+      password: "t208",
+      role: "Elektriker",
+      status: "Aktiv",
+      assignedAssets: [2],
+    },
+    {
+      id: 13,
+      name: "T208 Mechaniker",
+      email: "t208-mech",
+      password: "t208",
+      role: "Mechaniker",
+      status: "Aktiv",
+      assignedAssets: [2],
+    },
+    {
+      id: 14,
+      name: "T700 Elektriker",
+      email: "t700-el",
+      password: "t700",
+      role: "Elektriker",
+      status: "Aktiv",
+      assignedAssets: [3],
+    },
+    {
+      id: 15,
+      name: "T700 Mechaniker",
+      email: "t700-mech",
+      password: "t700",
+      role: "Mechaniker",
+      status: "Aktiv",
+      assignedAssets: [3],
+    },
+    {
+      id: 16,
+      name: "T46 Elektriker",
+      email: "t46-el",
+      password: "t46",
+      role: "Elektriker",
+      status: "Aktiv",
+      assignedAssets: [4],
+    },
+    {
+      id: 17,
+      name: "T46 Mechaniker",
+      email: "t46-mech",
+      password: "t46",
+      role: "Mechaniker",
+      status: "Aktiv",
+      assignedAssets: [4],
+    },
+  ]);
+
+  // Work Orders State - MIT Material-Feldern
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([
+    {
+      id: 1,
+      title: "Motor überhitzt",
+      description:
+        "Motor auf T207 läuft zu heiß, Kühlung prüfen. Temperatur steigt über 90°C. Sofortige Prüfung erforderlich.",
+      assetId: 1,
+      assetName: "T207",
+      type: "Mechanisch",
+      priority: "Hoch",
+      status: "In Arbeit",
+      createdBy: 2,
+      createdByName: "Anna E-Super",
+      assignedTo: 11,
+      assignedToName: "T207 Mechaniker",
+      createdAt: "2025-10-10T08:30:00",
+      updatedAt: "2025-10-10T09:15:00",
+      materialRequired: true,
+      materialStatus: "Bestellt",
+      materialNumber: "MAT-001-COOLER",
+      materialDescription: "Kühlmittel 20L für Motor",
+    },
+    {
+      id: 2,
+      title: "Elektrischer Ausfall Pumpe",
+      description:
+        "Pumpe auf T208 reagiert nicht, Verkabelung prüfen. Sicherung mehrfach ausgelöst.",
+      assetId: 2,
+      assetName: "T208",
+      type: "Elektrisch",
+      priority: "Kritisch",
+      status: "Zugewiesen",
+      createdBy: 3,
+      createdByName: "Tom M-Super",
+      assignedTo: 12,
+      assignedToName: "T208 Elektriker",
+      createdAt: "2025-10-10T10:00:00",
+      updatedAt: "2025-10-10T10:00:00",
+      materialRequired: true,
+      materialStatus: "Benötigt",
+      materialNumber: "MAT-002-CABLE",
+      materialDescription: "Stromkabel 3x2,5mm² 50m",
+    },
+    {
+      id: 3,
+      title: "Hydraulikschlauch undicht",
+      description:
+        "Kleines Leck am Hydraulikschlauch, austauschen. Leichte Verschmutzung durch austretendes Öl.",
+      assetId: 3,
+      assetName: "T700",
+      type: "Hydraulisch",
+      priority: "Normal",
+      status: "Neu",
+      createdBy: 6,
+      createdByName: "Sarah RSC",
+      createdAt: "2025-10-10T11:30:00",
+      updatedAt: "2025-10-10T11:30:00",
+      materialRequired: false,
+      materialStatus: "Nicht benötigt",
+    },
+  ]);
 
   // Modal States
   const [selectedWO, setSelectedWO] = useState<WorkOrder | null>(null);
@@ -30,6 +243,26 @@ function WorkOrderManagement() {
       filterPriority === "Alle" || wo.priority === filterPriority;
     return statusMatch && priorityMatch;
   });
+
+  // Work Order Funktionen - VERBESSERTE ID-GENERIERUNG
+  const handleCreateWorkOrder = (newWO: Omit<WorkOrder, "id">) => {
+    // Sichere ID-Generierung: Finde höchste ID und addiere 1
+    const maxId =
+      workOrders.length > 0 ? Math.max(...workOrders.map((wo) => wo.id)) : 0;
+    const newId = maxId + 1;
+
+    const workOrderWithId: WorkOrder = {
+      ...newWO,
+      id: newId,
+    };
+    setWorkOrders([...workOrders, workOrderWithId]);
+  };
+
+  const handleUpdateWorkOrder = (updatedWO: WorkOrder) => {
+    setWorkOrders(
+      workOrders.map((wo) => (wo.id === updatedWO.id ? updatedWO : wo))
+    );
+  };
 
   // Style Funktionen
   const getPriorityColor = (priority: WorkOrder["priority"]) => {
@@ -74,6 +307,22 @@ function WorkOrderManagement() {
         return "💧";
       default:
         return "🛠️";
+    }
+  };
+
+  // ========== NEU: Material Status Badge ==========
+  const getMaterialStatusColor = (status: WorkOrder["materialStatus"]) => {
+    switch (status) {
+      case "Nicht benötigt":
+        return "material-not-required";
+      case "Benötigt":
+        return "material-required";
+      case "Bestellt":
+        return "material-ordered";
+      case "Geliefert":
+        return "material-delivered";
+      default:
+        return "";
     }
   };
 
@@ -160,6 +409,7 @@ function WorkOrderManagement() {
               <th>Anlage</th>
               <th>Priorität</th>
               <th>Status</th>
+              <th>Material</th>
               <th>Zugewiesen an</th>
               <th>Erstellt</th>
             </tr>
@@ -189,6 +439,15 @@ function WorkOrderManagement() {
                 <td>
                   <span className={`wo-status ${getStatusColor(wo.status)}`}>
                     {wo.status}
+                  </span>
+                </td>
+                <td>
+                  <span
+                    className={`material-status ${getMaterialStatusColor(
+                      wo.materialStatus
+                    )}`}
+                  >
+                    {wo.materialRequired ? "📦" : "—"}
                   </span>
                 </td>
                 <td>{wo.assignedToName || "—"}</td>
@@ -246,12 +505,61 @@ function WorkOrderManagement() {
                 >
                   {selectedWO.status}
                 </span>
+                {selectedWO.materialRequired && (
+                  <span
+                    className={`material-status ${getMaterialStatusColor(
+                      selectedWO.materialStatus
+                    )}`}
+                  >
+                    📦 {selectedWO.materialStatus}
+                  </span>
+                )}
               </div>
 
               <div className="wo-detail-section">
                 <h3>Beschreibung</h3>
                 <p>{selectedWO.description}</p>
               </div>
+
+              {/* ========== NEU: Material-Informationen ========== */}
+              {selectedWO.materialRequired && (
+                <div className="wo-detail-section">
+                  <h3>📦 Material-Informationen</h3>
+                  <div className="material-info">
+                    {selectedWO.materialNumber && (
+                      <p>
+                        <strong>Materialnummer:</strong>{" "}
+                        {selectedWO.materialNumber}
+                      </p>
+                    )}
+                    <p>
+                      <strong>Beschreibung:</strong>{" "}
+                      {selectedWO.materialDescription}
+                    </p>
+                    <p>
+                      <strong>Status:</strong> {selectedWO.materialStatus}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* ========== NEU: Bilder anzeigen ========== */}
+              {selectedWO.images && selectedWO.images.length > 0 && (
+                <div className="wo-detail-section">
+                  <h3>📷 Bilder ({selectedWO.images.length})</h3>
+                  <div className="wo-images-grid">
+                    {selectedWO.images.map((img, index) => (
+                      <div key={index} className="wo-image-item">
+                        <img
+                          src={img}
+                          alt={`Work Order Bild ${index + 1}`}
+                          onClick={() => window.open(img, "_blank")}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="wo-detail-grid">
                 <div className="wo-detail-item">
@@ -308,9 +616,14 @@ function WorkOrderManagement() {
         </>
       )}
 
-      {/* Create Modal */}
+      {/* Create Modal - MIT USERS */}
       {showCreateModal && (
-        <CreateWorkOrderModal onClose={() => setShowCreateModal(false)} />
+        <CreateWorkOrderModal
+          assets={assets}
+          users={users}
+          onClose={() => setShowCreateModal(false)}
+          onCreateWorkOrder={handleCreateWorkOrder}
+        />
       )}
 
       {/* Edit Modal */}
@@ -319,7 +632,7 @@ function WorkOrderManagement() {
           workOrder={editingWO}
           users={users}
           onClose={() => setEditingWO(null)}
-          onUpdateWorkOrder={updateWorkOrder}
+          onUpdateWorkOrder={handleUpdateWorkOrder}
         />
       )}
     </div>

@@ -3,153 +3,140 @@
 // ==========================================
 
 // UserRole: Die 6 Benutzerrollen im System
+// Jede Rolle hat unterschiedliche Berechtigungen
 export type UserRole = 
-  | 'Admin'
-  | 'E-Supervisor'
-  | 'M-Supervisor'
-  | 'Mechaniker'
-  | 'Elektriker'
-  | 'RSC'
+  | 'Admin'           // Volle Rechte über alles
+  | 'E-Supervisor'    // Elektro-Team-Leiter
+  | 'M-Supervisor'    // Mechanik-Team-Leiter
+  | 'Mechaniker'      // Mechanische Arbeiten
+  | 'Elektriker'      // Elektrische Arbeiten
+  | 'RSC'             // Remote Service Center (Support/Überwachung)
 
-// User Interface
+// User Interface: Beschreibt wie ein User-Objekt aussehen muss
 export interface User {
-  id: number
-  name: string
-  email: string
-  password?: string
-  role: UserRole
-  status: 'Aktiv' | 'Inaktiv'
-  assignedAssets: number[]
+  id: number                        // Eindeutige ID
+  name: string                      // Name des Users
+  email: string                     // Email-Adresse
+  password?: string                 // Optional - nur beim Login
+  role: UserRole                    // Die Rolle des Users
+  status: 'Aktiv' | 'Inaktiv'       // Account-Status
+  assignedAssets: number[]          // NEU: IDs der zugewiesenen Anlagen ([] = alle)
 }
 
-// Permissions Interface
+
+// Permissions Interface: Definiert was ein User darf/nicht darf
 export interface Permissions {
-  canCreateUser: boolean
-  canEditUser: boolean
-  canDeleteUser: boolean
-  canViewAllUsers: boolean
-  canManageAssets: boolean
-  canCreateTickets: boolean
-  canAssignTickets: boolean
-  canCloseTickets: boolean
+  canCreateUser: boolean        // Darf neue User erstellen?
+  canEditUser: boolean          // Darf User bearbeiten?
+  canDeleteUser: boolean        // Darf User löschen?
+  canViewAllUsers: boolean      // Darf alle User sehen?
+  canManageAssets: boolean      // Darf Anlagen verwalten?
+  canCreateTickets: boolean     // Darf Tickets erstellen?
+  canAssignTickets: boolean     // Darf Tickets zuweisen?
+  canCloseTickets: boolean      // Darf Tickets schließen?
 }
 
 // ==========================================
 // ANLAGEN (ASSETS) TYPES
 // ==========================================
 
+// Asset Status: Wie ist der Zustand der Anlage?
 export type AssetStatus = 
-  | 'Betrieb'
-  | 'Wartung'
-  | 'Störung'
-  | 'Stillstand'
+  | 'Betrieb'       // Läuft normal
+  | 'Wartung'       // Geplante Wartung
+  | 'Störung'       // Problem vorhanden
+  | 'Stillstand'    // Außer Betrieb
 
+// Asset Type: Welche Art von Ausrüstung?
 export type AssetType = 
-  | 'Bohranlage'
-  | 'Motor'
-  | 'Pumpe'
-  | 'Bohrturm'
-  | 'Generator'
-  | 'Kompressor'
-  | 'Sonstiges'
+  | 'Bohranlage'    // Hauptanlage
+  | 'Motor'         // Motor-Komponente
+  | 'Pumpe'         // Pumpen-System
+  | 'Bohrturm'      // Turm-Struktur
+  | 'Generator'     // Stromversorgung
+  | 'Kompressor'    // Druckluft
+  | 'Sonstiges'     // Andere Komponenten
 
+// Asset Interface: Beschreibt eine Anlage oder Komponente
 export interface Asset {
-  id: number
-  name: string
-  type: AssetType
-  status: AssetStatus
-  location: string
-  serialNumber?: string
-  parentAssetId?: number
-  assignedUsers: number[]
-  lastMaintenance?: string
-  notes?: string
+  id: number                    // Eindeutige ID
+  name: string                  // Name (z.B. "T207", "Motor 1")
+  type: AssetType               // Typ der Anlage
+  status: AssetStatus           // Aktueller Status
+  location: string              // Standort (z.B. "Feld Nord")
+  serialNumber?: string         // Seriennummer (optional)
+  parentAssetId?: number        // Wenn Komponente: ID der Hauptanlage
+  assignedUsers: number[]       // IDs der zugewiesenen User
+  lastMaintenance?: string      // Letzte Wartung (Datum)
+  notes?: string                // Zusätzliche Notizen
 }
 
 // ==========================================
 // WORK ORDER TYPES
 // ==========================================
 
+// Work Order Priority: Wie dringend ist das Problem?
 export type WorkOrderPriority = 
-  | 'Niedrig'
-  | 'Normal'
-  | 'Hoch'
-  | 'Kritisch'
+  | 'Niedrig'       // Kann warten
+  | 'Normal'        // Standard
+  | 'Hoch'          // Wichtig
+  | 'Kritisch'      // SOFORT!
 
+// Work Order Status: Wo steht der Auftrag?
 export type WorkOrderStatus = 
-  | 'Neu'
-  | 'Zugewiesen'
-  | 'In Arbeit'
-  | 'Erledigt'
-  | 'Abgebrochen'
+  | 'Neu'           // Gerade erstellt
+  | 'Zugewiesen'    // Einem Techniker zugewiesen
+  | 'In Arbeit'     // Techniker arbeitet daran
+  | 'Erledigt'      // Fertig!
+  | 'Abgebrochen'   // Wurde abgebrochen
 
+// Work Order Type: Welche Art von Arbeit?
 export type WorkOrderType = 
-  | 'Mechanisch'
-  | 'Elektrisch'
-  | 'Hydraulisch'
-  | 'Sonstiges'
+  | 'Mechanisch'    // Mechanik-Problem
+  | 'Elektrisch'    // Elektrik-Problem
+  | 'Hydraulisch'   // Hydraulik
+  | 'Sonstiges'     // Andere
 
+// Material Status: Status der Materialbestellung
+export type MaterialStatus = 
+  | 'Nicht benötigt'    // Kein Material erforderlich
+  | 'Benötigt'          // Material wird benötigt
+  | 'Bestellt'          // Material wurde bestellt
+  | 'Geliefert'         // Material ist angekommen
+
+// Work Order Interface: Beschreibt einen Arbeitsauftrag
 export interface WorkOrder {
-  id: number
-  title: string
-  description: string
-  assetId: number
-  assetName: string
-  type: WorkOrderType
-  priority: WorkOrderPriority
-  status: WorkOrderStatus
-  createdBy: number
-  createdByName: string
-  assignedTo?: number
-  assignedToName?: string
-  createdAt: string
-  updatedAt: string
-  completedAt?: string
-  notes?: string
+  id: number                        // Eindeutige ID
+  title: string                     // Titel/Kurzbeschreibung
+  description: string               // Detaillierte Beschreibung
+  assetId: number                   // Zu welcher Anlage gehört es?
+  assetName: string                 // Name der Anlage (für schnellen Zugriff)
+  type: WorkOrderType               // Art der Arbeit
+  priority: WorkOrderPriority       // Dringlichkeit
+  status: WorkOrderStatus           // Aktueller Status
+  createdBy: number                 // User-ID: Wer hat es erstellt?
+  createdByName: string             // Name des Erstellers
+  assignedTo?: number               // User-ID: Wem zugewiesen?
+  assignedToName?: string           // Name des zugewiesenen Technikers
+  createdAt: string                 // Zeitstempel: Wann erstellt?
+  updatedAt: string                 // Zeitstempel: Letzte Änderung
+  completedAt?: string              // Zeitstempel: Wann erledigt?
+  notes?: string                    // Zusätzliche Notizen
+  // ========== Material-Management ==========
+  materialRequired: boolean         // Wird Material benötigt?
+  materialStatus: MaterialStatus    // Status der Materialbestellung
+  materialNumber?: string           // SAP-Materialnummer
+  materialDescription?: string      // Beschreibung des Materials
+  // ========== NEU: Bilder ==========
+  images?: string[]                 // Base64-encoded Bilder
 }
 
-// ==========================================
-// COMMENT SYSTEM
-// ==========================================
-
-export type CommentType = 
-  | 'comment'
-  | 'status_change'
-  | 'assignment'
-  | 'priority_change'
-
+// Comment Interface: Kommentare zu Work Orders
 export interface WorkOrderComment {
-  id: number
-  workOrderId: number
-  userId: number
-  userName: string
-  userRole: string
-  comment: string
-  timestamp: string
-  type: CommentType
-  oldValue?: string
-  newValue?: string
-}
-
-// ==========================================
-// NOTIFICATION SYSTEM
-// ==========================================
-
-export type NotificationType = 
-  | 'comment'
-  | 'assignment'
-  | 'status_change'
-  | 'mention'
-
-export interface Notification {
-  id: number
-  userId: number
-  type: NotificationType
-  workOrderId: number
-  workOrderTitle: string
-  message: string
-  createdAt: string
-  read: boolean
-  createdBy: number
-  createdByName: string
+  id: number                        // Kommentar-ID
+  workOrderId: number               // Zu welchem Work Order?
+  userId: number                    // Wer hat kommentiert?
+  userName: string                  // Name des Kommentators
+  comment: string                   // Der Kommentar-Text
+  timestamp: string                 // Wann geschrieben?
 }
