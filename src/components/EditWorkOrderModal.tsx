@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useData } from "../contexts/DataContext"; // NEU!
 import { getPermissionsForRole } from "../utils/permissions";
-import type { WorkOrder, User } from "../types";
+import CommentSection from "./CommentSection"; // NEU!
+import type { WorkOrder, User, WorkOrderComment } from "../types";
 
 interface EditWorkOrderModalProps {
   workOrder: WorkOrder;
@@ -17,6 +19,7 @@ function EditWorkOrderModal({
   onUpdateWorkOrder,
 }: EditWorkOrderModalProps) {
   const { currentUser, permissions } = useAuth();
+  const { addComment, comments } = useData(); // NEU!
 
   const [status, setStatus] = useState(workOrder.status);
   const [priority, setPriority] = useState(workOrder.priority);
@@ -30,8 +33,65 @@ function EditWorkOrderModal({
   );
 
   const handleSave = () => {
+    if (!currentUser) return;
+
     const assignedUser = users.find((u) => u.id === assignedTo);
 
+    // Erstelle automatische Kommentare bei Änderungen
+    const newComments: WorkOrderComment[] = [];
+
+    // Status geändert?
+    if (status !== workOrder.status) {
+      newComments.push({
+        id: Math.max(...comments.map((c) => c.id), 0) + 1 + newComments.length,
+        workOrderId: workOrder.id,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        comment: "",
+        timestamp: new Date().toISOString(),
+        type: "status_change",
+        oldValue: workOrder.status,
+        newValue: status,
+      });
+    }
+
+    // Priorität geändert?
+    if (priority !== workOrder.priority) {
+      newComments.push({
+        id: Math.max(...comments.map((c) => c.id), 0) + 1 + newComments.length,
+        workOrderId: workOrder.id,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        comment: "",
+        timestamp: new Date().toISOString(),
+        type: "priority_change",
+        oldValue: workOrder.priority,
+        newValue: priority,
+      });
+    }
+
+    // Zuweisung geändert?
+    if (assignedTo !== workOrder.assignedTo && assignedTo) {
+      newComments.push({
+        id: Math.max(...comments.map((c) => c.id), 0) + 1 + newComments.length,
+        workOrderId: workOrder.id,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        comment: "",
+        timestamp: new Date().toISOString(),
+        type: "assignment",
+        oldValue: workOrder.assignedToName || "Niemand",
+        newValue: assignedUser?.name || "Unbekannt",
+      });
+    }
+
+    // Füge alle neuen Kommentare hinzu
+    newComments.forEach((comment) => addComment(comment));
+
+    // Update Work Order
     const updatedWO: WorkOrder = {
       ...workOrder,
       status,
@@ -114,11 +174,16 @@ function EditWorkOrderModal({
               </select>
             </div>
           )}
+
+          {/* NEU: Kommentar-Sektion */}
+          <div className="wo-edit-comments">
+            <CommentSection workOrderId={workOrder.id} />
+          </div>
         </div>
 
         <div className="wo-edit-footer">
           <button onClick={handleSave} className="btn-edit-save">
-            Speichern
+            💾 Speichern
           </button>
           <button onClick={onClose} className="btn-edit-cancel">
             Abbrechen

@@ -1,11 +1,11 @@
 // ==========================================
-// DATA CONTEXT - MIT LOCALSTORAGE
+// DATA CONTEXT - MIT COMMENTS
 // ==========================================
-// Verwaltet alle Daten (Users, Assets, WorkOrders) zentral
+// Verwaltet alle Daten (Users, Assets, WorkOrders, Comments) zentral
 
 import { createContext, useContext, type ReactNode } from "react";
 import { useLocalStorage } from "../hooks/useLocalStorage";
-import type { User, Asset, WorkOrder } from "../types";
+import type { User, Asset, WorkOrder, WorkOrderComment } from "../types";
 
 // Initial-Daten wenn localStorage leer ist
 const INITIAL_USERS: User[] = [
@@ -214,12 +214,16 @@ const INITIAL_WORKORDERS: WorkOrder[] = [
   },
 ];
 
+// Initial Comments - leer am Anfang
+const INITIAL_COMMENTS: WorkOrderComment[] = [];
+
 // Interface: Was der DataContext bereitstellt
 interface DataContextType {
   // State
   users: User[];
   assets: Asset[];
   workOrders: WorkOrder[];
+  comments: WorkOrderComment[]; // NEU!
 
   // User Functions
   addUser: (user: User) => void;
@@ -236,8 +240,13 @@ interface DataContextType {
   updateWorkOrder: (workOrder: WorkOrder) => void;
   deleteWorkOrder: (id: number) => void;
 
+  // Comment Functions - NEU!
+  addComment: (comment: WorkOrderComment) => void;
+  getCommentsForWorkOrder: (workOrderId: number) => WorkOrderComment[];
+  deleteComment: (id: number) => void;
+
   // Utility
-  resetAllData: () => void; // Reset zu Initial-Daten
+  resetAllData: () => void;
 }
 
 // Context erstellen
@@ -257,6 +266,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [workOrders, setWorkOrders] = useLocalStorage<WorkOrder[]>(
     "maintaIn_workOrders",
     INITIAL_WORKORDERS
+  );
+  const [comments, setComments] = useLocalStorage<WorkOrderComment[]>(
+    "maintaIn_comments",
+    INITIAL_COMMENTS
   );
 
   // User Management Functions
@@ -300,11 +313,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setWorkOrders(workOrders.filter((wo) => wo.id !== id));
   };
 
+  // Comment Management Functions - NEU!
+  const addComment = (comment: WorkOrderComment) => {
+    setComments([...comments, comment]);
+  };
+
+  const getCommentsForWorkOrder = (workOrderId: number): WorkOrderComment[] => {
+    return comments
+      .filter((c) => c.workOrderId === workOrderId)
+      .sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+  };
+
+  const deleteComment = (id: number) => {
+    setComments(comments.filter((c) => c.id !== id));
+  };
+
   // Reset alle Daten zu Initial-Werten
   const resetAllData = () => {
     setUsers(INITIAL_USERS);
     setAssets(INITIAL_ASSETS);
     setWorkOrders(INITIAL_WORKORDERS);
+    setComments(INITIAL_COMMENTS);
   };
 
   // Context Value
@@ -312,6 +344,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     users,
     assets,
     workOrders,
+    comments,
     addUser,
     updateUser,
     deleteUser,
@@ -321,6 +354,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     addWorkOrder,
     updateWorkOrder,
     deleteWorkOrder,
+    addComment,
+    getCommentsForWorkOrder,
+    deleteComment,
     resetAllData,
   };
 

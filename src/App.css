@@ -1572,3 +1572,242 @@ h1 {
 .btn-edit-cancel:hover {
   background: var(--gray-300);
 }
+
+/* ==========================================
+   COMMENT SECTION STYLES
+   ========================================== */
+
+.wo-edit-comments {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid var(--gray-200);
+}
+
+.comment-section {
+  width: 100%;
+}
+
+.comment-section-title {
+  margin: 0 0 1.5rem 0;
+  color: var(--gray-900);
+  font-size: 1.125rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Comment List */
+.comment-list {
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 1.5rem;
+  padding: 0.5rem;
+  background: var(--gray-50);
+  border-radius: 12px;
+}
+
+.comment-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.comment-list::-webkit-scrollbar-track {
+  background: var(--gray-100);
+  border-radius: 10px;
+}
+
+.comment-list::-webkit-scrollbar-thumb {
+  background: var(--gray-400);
+  border-radius: 10px;
+}
+
+.comment-list::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-500);
+}
+
+/* Empty State */
+.comment-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--gray-500);
+}
+
+.comment-empty p {
+  margin: 0;
+  font-style: italic;
+}
+
+/* Comment Item */
+.comment-item {
+  background: white;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--gray-200);
+  transition: all 0.2s ease;
+}
+
+.comment-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+.comment-item:last-child {
+  margin-bottom: 0;
+}
+
+/* System Comments (Status-Änderungen etc.) */
+.comment-system {
+  background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+  border-left: 3px solid var(--primary);
+}
+
+/* Comment Header */
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.comment-user {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.comment-icon {
+  font-size: 1.25rem;
+}
+
+.comment-user-name {
+  font-weight: 600;
+  color: var(--gray-900);
+  font-size: 0.9375rem;
+}
+
+.comment-user-role {
+  font-size: 0.6875rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  color: white;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.comment-time {
+  font-size: 0.8125rem;
+  color: var(--gray-500);
+}
+
+/* Comment Body */
+.comment-body {
+  color: var(--gray-700);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.comment-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.comment-change {
+  color: var(--gray-600);
+  font-size: 0.9375rem;
+}
+
+.comment-change strong {
+  color: var(--gray-900);
+  font-weight: 600;
+}
+
+.comment-new-value {
+  color: var(--primary);
+}
+
+/* Comment Form */
+.comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.comment-input {
+  width: 100%;
+  padding: 1rem;
+  border: 1.5px solid var(--gray-300);
+  border-radius: 12px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  background: white;
+  color: var(--gray-900);
+  transition: all 0.2s ease;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.comment-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.comment-input::placeholder {
+  color: var(--gray-400);
+}
+
+.comment-submit-btn {
+  align-self: flex-end;
+  background: var(--primary);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.comment-submit-btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.comment-submit-btn:disabled {
+  background: var(--gray-300);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Edit Modal - Größere Höhe für Kommentare */
+.wo-edit-modal {
+  max-height: 95vh;
+  overflow-y: auto;
+}
+
+.wo-edit-body {
+  max-height: calc(95vh - 200px);
+  overflow-y: auto;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .comment-list {
+    max-height: 300px;
+  }
+  
+  .comment-user {
+    flex-wrap: wrap;
+  }
+  
+  .comment-time {
+    width: 100%;
+    margin-top: 0.25rem;
+  }
+}

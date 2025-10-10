@@ -20,7 +20,7 @@ export interface User {
   password?: string                 // Optional - nur beim Login
   role: UserRole                    // Die Rolle des Users
   status: 'Aktiv' | 'Inaktiv'       // Account-Status
-  assignedAssets: number[]          // NEU: IDs der zugewiesenen Anlagen ([] = alle)
+  assignedAssets: number[]          // IDs der zugewiesenen Anlagen ([] = alle)
 }
 
 
@@ -117,12 +117,27 @@ export interface WorkOrder {
   notes?: string                    // Zusätzliche Notizen
 }
 
+// ==========================================
+// COMMENT SYSTEM - NEU!
+// ==========================================
+
+// Comment Type: Welche Art von Kommentar?
+export type CommentType = 
+  | 'comment'           // Normaler User-Kommentar
+  | 'status_change'     // System: Status wurde geändert
+  | 'assignment'        // System: Work Order wurde zugewiesen
+  | 'priority_change'   // System: Priorität wurde geändert
+
 // Comment Interface: Kommentare zu Work Orders
 export interface WorkOrderComment {
   id: number                        // Kommentar-ID
   workOrderId: number               // Zu welchem Work Order?
   userId: number                    // Wer hat kommentiert?
   userName: string                  // Name des Kommentators
+  userRole: string                  // Rolle des Users
   comment: string                   // Der Kommentar-Text
   timestamp: string                 // Wann geschrieben?
+  type: CommentType                 // Art des Kommentars
+  oldValue?: string                 // Bei Änderungen: Alter Wert
+  newValue?: string                 // Bei Änderungen: Neuer Wert
 }
