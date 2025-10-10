@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useData } from "../contexts/DataContext"; // NEU!
+import { useData } from "../contexts/DataContext";
+import NotificationBell from "../components/NotificationBell";
 import UserManagement from "./UserManagement";
 import AssetManagement from "./AssetManagement";
 import WorkOrderManagement from "./WorkOrderManagement";
@@ -10,10 +11,7 @@ function Dashboard() {
     "users" | "assets" | "workorders"
   >("workorders");
 
-  // Hole currentUser und logout aus AuthContext
-  const { currentUser, logout } = useAuth();
-
-  // Hole resetAllData aus DataContext
+  const { currentUser, logout, permissions } = useAuth();
   const { resetAllData } = useData();
 
   const handleReset = () => {
@@ -29,7 +27,6 @@ function Dashboard() {
 
   return (
     <div>
-      {/* Logout Header */}
       <div className="dashboard-header">
         <div>
           <span>
@@ -37,7 +34,8 @@ function Dashboard() {
           </span>
           <span className="user-role">({currentUser?.role})</span>
         </div>
-        <div style={{ display: "flex", gap: "1rem" }}>
+        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <NotificationBell />
           <button
             onClick={handleReset}
             className="logout-btn"
@@ -51,14 +49,15 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="dashboard-nav">
-        <button
-          className={currentPage === "users" ? "nav-btn active" : "nav-btn"}
-          onClick={() => setCurrentPage("users")}
-        >
-          👥 Benutzerverwaltung
-        </button>
+        {permissions?.canViewAllUsers && (
+          <button
+            className={currentPage === "users" ? "nav-btn active" : "nav-btn"}
+            onClick={() => setCurrentPage("users")}
+          >
+            👥 Benutzerverwaltung
+          </button>
+        )}
         <button
           className={currentPage === "assets" ? "nav-btn active" : "nav-btn"}
           onClick={() => setCurrentPage("assets")}
@@ -75,8 +74,9 @@ function Dashboard() {
         </button>
       </nav>
 
-      {/* Content */}
-      {currentPage === "users" && <UserManagement />}
+      {currentPage === "users" && permissions?.canViewAllUsers && (
+        <UserManagement />
+      )}
       {currentPage === "assets" && <AssetManagement />}
       {currentPage === "workorders" && <WorkOrderManagement />}
     </div>

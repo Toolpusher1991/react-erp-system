@@ -1,8 +1,3 @@
-// ==========================================
-// COMMENT SECTION COMPONENT
-// ==========================================
-// Zeigt alle Kommentare zu einem Work Order + Input für neue Kommentare
-
 import { useState } from "react";
 import { useData } from "../contexts/DataContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -10,14 +5,17 @@ import type { WorkOrderComment } from "../types";
 
 interface CommentSectionProps {
   workOrderId: number;
+  workOrder?: { assignedTo?: number; createdBy: number; title?: string };
 }
 
-function CommentSection({ workOrderId }: CommentSectionProps) {
+function CommentSection({ workOrderId, workOrder }: CommentSectionProps) {
   const { currentUser } = useAuth();
-  const { comments, addComment } = useData();
+  const { comments, addComment, addNotification, notifications, workOrders } =
+    useData();
   const [newComment, setNewComment] = useState("");
 
-  // Hole alle Kommentare für diesen Work Order
+  const wo = workOrder || workOrders.find((w) => w.id === workOrderId);
+
   const woComments = comments
     .filter((c) => c.workOrderId === workOrderId)
     .sort(
@@ -25,7 +23,6 @@ function CommentSection({ workOrderId }: CommentSectionProps) {
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
 
-  // Kommentar absenden
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -44,9 +41,40 @@ function CommentSection({ workOrderId }: CommentSectionProps) {
 
     addComment(comment);
     setNewComment("");
+
+    // Erstelle Notifications für relevante User
+    if (wo) {
+      const notifyUsers: number[] = [];
+
+      if (wo.assignedTo && wo.assignedTo !== currentUser.id) {
+        notifyUsers.push(wo.assignedTo);
+      }
+
+      if (
+        wo.createdBy !== currentUser.id &&
+        !notifyUsers.includes(wo.createdBy)
+      ) {
+        notifyUsers.push(wo.createdBy);
+      }
+
+      notifyUsers.forEach((userId) => {
+        const notification = {
+          id: Math.max(...notifications.map((n) => n.id), 0) + 1,
+          userId,
+          type: "comment" as const,
+          workOrderId,
+          workOrderTitle: wo.title || `Work Order #${workOrderId}`,
+          message: `${currentUser.name} hat kommentiert`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          createdBy: currentUser.id,
+          createdByName: currentUser.name,
+        };
+        addNotification(notification);
+      });
+    }
   };
 
-  // Zeitformat: "vor 5 Minuten"
   const getTimeAgo = (timestamp: string) => {
     const now = new Date();
     const then = new Date(timestamp);
@@ -58,7 +86,6 @@ function CommentSection({ workOrderId }: CommentSectionProps) {
     return `vor ${Math.floor(seconds / 86400)} Tagen`;
   };
 
-  // Icon für Comment-Type
   const getCommentIcon = (type: WorkOrderComment["type"]) => {
     switch (type) {
       case "comment":
@@ -74,7 +101,6 @@ function CommentSection({ workOrderId }: CommentSectionProps) {
     }
   };
 
-  // Farbe für User-Role
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case "Admin":
@@ -99,7 +125,6 @@ function CommentSection({ workOrderId }: CommentSectionProps) {
         💬 Kommentare ({woComments.length})
       </h3>
 
-      {/* Kommentar-Liste */}
       <div className="comment-list">
         {woComments.length === 0 ? (
           <div className="comment-empty">
@@ -164,7 +189,6 @@ function CommentSection({ workOrderId }: CommentSectionProps) {
         )}
       </div>
 
-      {/* Kommentar Input */}
       <form onSubmit={handleSubmit} className="comment-form">
         <textarea
           value={newComment}

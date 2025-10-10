@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useData } from "../contexts/DataContext"; // NEU!
+import { useData } from "../contexts/DataContext";
 import { canAccessAsset } from "../utils/permissions";
 import CreateWorkOrderModal from "../components/CreateWorkOrderModal";
 import EditWorkOrderModal from "../components/EditWorkOrderModal";
@@ -8,10 +8,7 @@ import type { WorkOrder } from "../types";
 
 function WorkOrderManagement() {
   const { currentUser } = useAuth();
-
-  // Hole Daten aus DataContext statt lokalem State
-  const { assets, users, workOrders, addWorkOrder, updateWorkOrder } =
-    useData();
+  const { workOrders, updateWorkOrder, users } = useData();
 
   // Modal States
   const [selectedWO, setSelectedWO] = useState<WorkOrder | null>(null);
@@ -33,20 +30,6 @@ function WorkOrderManagement() {
       filterPriority === "Alle" || wo.priority === filterPriority;
     return statusMatch && priorityMatch;
   });
-
-  // Work Order Funktionen
-  const handleCreateWorkOrder = (newWO: Omit<WorkOrder, "id">) => {
-    const newId = Math.max(...workOrders.map((wo) => wo.id), 0) + 1;
-    const workOrderWithId: WorkOrder = {
-      ...newWO,
-      id: newId,
-    };
-    addWorkOrder(workOrderWithId); // Verwendet DataContext
-  };
-
-  const handleUpdateWorkOrder = (updatedWO: WorkOrder) => {
-    updateWorkOrder(updatedWO); // Verwendet DataContext
-  };
 
   // Style Funktionen
   const getPriorityColor = (priority: WorkOrder["priority"]) => {
@@ -327,11 +310,7 @@ function WorkOrderManagement() {
 
       {/* Create Modal */}
       {showCreateModal && (
-        <CreateWorkOrderModal
-          assets={assets}
-          onClose={() => setShowCreateModal(false)}
-          onCreateWorkOrder={handleCreateWorkOrder}
-        />
+        <CreateWorkOrderModal onClose={() => setShowCreateModal(false)} />
       )}
 
       {/* Edit Modal */}
@@ -340,7 +319,7 @@ function WorkOrderManagement() {
           workOrder={editingWO}
           users={users}
           onClose={() => setEditingWO(null)}
-          onUpdateWorkOrder={handleUpdateWorkOrder}
+          onUpdateWorkOrder={updateWorkOrder}
         />
       )}
     </div>

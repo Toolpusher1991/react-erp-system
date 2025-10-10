@@ -1,13 +1,21 @@
 // ==========================================
-// DATA CONTEXT - MIT COMMENTS
+// DATA CONTEXT - MIT COMMENTS & NOTIFICATIONS
 // ==========================================
-// Verwaltet alle Daten (Users, Assets, WorkOrders, Comments) zentral
 
 import { createContext, useContext, type ReactNode } from "react";
 import { useLocalStorage } from "../hooks/useLocalStorage";
-import type { User, Asset, WorkOrder, WorkOrderComment } from "../types";
+import type {
+  User,
+  Asset,
+  WorkOrder,
+  WorkOrderComment,
+  Notification,
+} from "../types";
 
-// Initial-Daten wenn localStorage leer ist
+// ==========================================
+// INITIAL DATA
+// ==========================================
+
 const INITIAL_USERS: User[] = [
   {
     id: 1,
@@ -214,47 +222,52 @@ const INITIAL_WORKORDERS: WorkOrder[] = [
   },
 ];
 
-// Initial Comments - leer am Anfang
 const INITIAL_COMMENTS: WorkOrderComment[] = [];
+const INITIAL_NOTIFICATIONS: Notification[] = [];
 
-// Interface: Was der DataContext bereitstellt
+// ==========================================
+// CONTEXT INTERFACE
+// ==========================================
+
 interface DataContextType {
-  // State
   users: User[];
   assets: Asset[];
   workOrders: WorkOrder[];
-  comments: WorkOrderComment[]; // NEU!
+  comments: WorkOrderComment[];
+  notifications: Notification[];
 
-  // User Functions
   addUser: (user: User) => void;
   updateUser: (user: User) => void;
   deleteUser: (id: number) => void;
 
-  // Asset Functions
   addAsset: (asset: Asset) => void;
   updateAsset: (asset: Asset) => void;
   deleteAsset: (id: number) => void;
 
-  // WorkOrder Functions
   addWorkOrder: (workOrder: WorkOrder) => void;
   updateWorkOrder: (workOrder: WorkOrder) => void;
   deleteWorkOrder: (id: number) => void;
 
-  // Comment Functions - NEU!
   addComment: (comment: WorkOrderComment) => void;
   getCommentsForWorkOrder: (workOrderId: number) => WorkOrderComment[];
   deleteComment: (id: number) => void;
 
-  // Utility
+  addNotification: (notification: Notification) => void;
+  getNotificationsForUser: (userId: number) => Notification[];
+  markNotificationAsRead: (id: number) => void;
+  markAllNotificationsAsRead: (userId: number) => void;
+  getUnreadCount: (userId: number) => number;
+
   resetAllData: () => void;
 }
 
-// Context erstellen
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// Provider Component
+// ==========================================
+// PROVIDER
+// ==========================================
+
 export function DataProvider({ children }: { children: ReactNode }) {
-  // useLocalStorage Hook - speichert automatisch!
   const [users, setUsers] = useLocalStorage<User[]>(
     "maintaIn_users",
     INITIAL_USERS
@@ -271,80 +284,83 @@ export function DataProvider({ children }: { children: ReactNode }) {
     "maintaIn_comments",
     INITIAL_COMMENTS
   );
+  const [notifications, setNotifications] = useLocalStorage<Notification[]>(
+    "maintaIn_notifications",
+    INITIAL_NOTIFICATIONS
+  );
 
-  // User Management Functions
-  const addUser = (user: User) => {
-    setUsers([...users, user]);
-  };
-
-  const updateUser = (updatedUser: User) => {
+  // User Functions
+  const addUser = (user: User) => setUsers([...users, user]);
+  const updateUser = (updatedUser: User) =>
     setUsers(users.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
-  };
+  const deleteUser = (id: number) => setUsers(users.filter((u) => u.id !== id));
 
-  const deleteUser = (id: number) => {
-    setUsers(users.filter((u) => u.id !== id));
-  };
-
-  // Asset Management Functions
-  const addAsset = (asset: Asset) => {
-    setAssets([...assets, asset]);
-  };
-
-  const updateAsset = (updatedAsset: Asset) => {
+  // Asset Functions
+  const addAsset = (asset: Asset) => setAssets([...assets, asset]);
+  const updateAsset = (updatedAsset: Asset) =>
     setAssets(assets.map((a) => (a.id === updatedAsset.id ? updatedAsset : a)));
-  };
-
-  const deleteAsset = (id: number) => {
+  const deleteAsset = (id: number) =>
     setAssets(assets.filter((a) => a.id !== id));
-  };
 
-  // WorkOrder Management Functions
-  const addWorkOrder = (workOrder: WorkOrder) => {
+  // WorkOrder Functions
+  const addWorkOrder = (workOrder: WorkOrder) =>
     setWorkOrders([...workOrders, workOrder]);
-  };
-
-  const updateWorkOrder = (updatedWO: WorkOrder) => {
+  const updateWorkOrder = (updatedWO: WorkOrder) =>
     setWorkOrders(
       workOrders.map((wo) => (wo.id === updatedWO.id ? updatedWO : wo))
     );
-  };
-
-  const deleteWorkOrder = (id: number) => {
+  const deleteWorkOrder = (id: number) =>
     setWorkOrders(workOrders.filter((wo) => wo.id !== id));
-  };
 
-  // Comment Management Functions - NEU!
-  const addComment = (comment: WorkOrderComment) => {
+  // Comment Functions
+  const addComment = (comment: WorkOrderComment) =>
     setComments([...comments, comment]);
-  };
-
-  const getCommentsForWorkOrder = (workOrderId: number): WorkOrderComment[] => {
-    return comments
+  const getCommentsForWorkOrder = (workOrderId: number): WorkOrderComment[] =>
+    comments
       .filter((c) => c.workOrderId === workOrderId)
       .sort(
         (a, b) =>
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
-  };
-
-  const deleteComment = (id: number) => {
+  const deleteComment = (id: number) =>
     setComments(comments.filter((c) => c.id !== id));
-  };
 
-  // Reset alle Daten zu Initial-Werten
+  // Notification Functions
+  const addNotification = (notification: Notification) =>
+    setNotifications([...notifications, notification]);
+  const getNotificationsForUser = (userId: number): Notification[] =>
+    notifications
+      .filter((n) => n.userId === userId)
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+  const markNotificationAsRead = (id: number) =>
+    setNotifications(
+      notifications.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+  const markAllNotificationsAsRead = (userId: number) =>
+    setNotifications(
+      notifications.map((n) => (n.userId === userId ? { ...n, read: true } : n))
+    );
+  const getUnreadCount = (userId: number): number =>
+    notifications.filter((n) => n.userId === userId && !n.read).length;
+
+  // Reset
   const resetAllData = () => {
     setUsers(INITIAL_USERS);
     setAssets(INITIAL_ASSETS);
     setWorkOrders(INITIAL_WORKORDERS);
     setComments(INITIAL_COMMENTS);
+    setNotifications(INITIAL_NOTIFICATIONS);
   };
 
-  // Context Value
   const value: DataContextType = {
     users,
     assets,
     workOrders,
     comments,
+    notifications,
     addUser,
     updateUser,
     deleteUser,
@@ -357,19 +373,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     addComment,
     getCommentsForWorkOrder,
     deleteComment,
+    addNotification,
+    getNotificationsForUser,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    getUnreadCount,
     resetAllData,
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
 
-// Custom Hook zum Zugriff auf DataContext
 export function useData() {
   const context = useContext(DataContext);
-  if (context === undefined) {
+  if (!context)
     throw new Error(
       "useData muss innerhalb von DataProvider verwendet werden!"
     );
-  }
   return context;
 }

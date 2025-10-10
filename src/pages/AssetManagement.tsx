@@ -1,21 +1,19 @@
+import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useData } from "../contexts/DataContext"; // NEU!
+import { useData } from "../contexts/DataContext";
 import { filterAssetsForUser } from "../utils/permissions";
+import EditAssetModal from "../components/EditAssetModal";
 import type { Asset } from "../types";
 
 function AssetManagement() {
-  // Hole currentUser aus AuthContext
-  const { currentUser } = useAuth();
+  const { currentUser, permissions } = useAuth();
+  const { assets, updateAsset } = useData();
+  const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
 
-  // Hole assets aus DataContext statt lokalem State
-  const { assets } = useData();
-
-  // Filtere Assets basierend auf User-Rechten
   const visibleAssets = currentUser
     ? filterAssetsForUser(currentUser, assets)
     : [];
 
-  // Funktion: Status-Badge-Farbe basierend auf Status
   const getStatusColor = (status: Asset["status"]) => {
     switch (status) {
       case "Betrieb":
@@ -31,7 +29,6 @@ function AssetManagement() {
     }
   };
 
-  // Funktion: Emoji für Asset-Typ
   const getTypeIcon = (type: Asset["type"]) => {
     switch (type) {
       case "Bohranlage":
@@ -55,7 +52,6 @@ function AssetManagement() {
     <div className="container">
       <h1>🛢️ Anlagenverwaltung</h1>
 
-      {/* Übersicht Cards */}
       <div className="asset-overview">
         <div className="overview-card">
           <h3>Gesamt</h3>
@@ -85,7 +81,6 @@ function AssetManagement() {
         </div>
       </div>
 
-      {/* Anlagen-Liste */}
       <div className="asset-grid">
         {visibleAssets.map((asset) => (
           <div key={asset.id} className="asset-card">
@@ -118,17 +113,29 @@ function AssetManagement() {
             </div>
 
             <div className="asset-card-footer">
-              <button className="btn-details">Details anzeigen</button>
+              <button
+                className="btn-details"
+                onClick={() => setEditingAsset(asset)}
+              >
+                ⚙️ Status bearbeiten
+              </button>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Keine Anlagen Message */}
       {visibleAssets.length === 0 && (
         <div className="wo-empty">
           <p>Keine Anlagen zugewiesen oder verfügbar.</p>
         </div>
+      )}
+
+      {editingAsset && (
+        <EditAssetModal
+          asset={editingAsset}
+          onClose={() => setEditingAsset(null)}
+          onUpdateAsset={updateAsset}
+        />
       )}
     </div>
   );

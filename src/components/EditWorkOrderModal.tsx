@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useData } from "../contexts/DataContext"; // NEU!
+import { useData } from "../contexts/DataContext";
 import { getPermissionsForRole } from "../utils/permissions";
-import CommentSection from "./CommentSection"; // NEU!
+import CommentSection from "./CommentSection";
 import type { WorkOrder, User, WorkOrderComment } from "../types";
 
 interface EditWorkOrderModalProps {
@@ -19,15 +19,28 @@ function EditWorkOrderModal({
   onUpdateWorkOrder,
 }: EditWorkOrderModalProps) {
   const { currentUser, permissions } = useAuth();
-  const { addComment, comments } = useData(); // NEU!
+  const { addComment, comments, addNotification, notifications } = useData();
 
-  const [status, setStatus] = useState(workOrder.status);
-  const [priority, setPriority] = useState(workOrder.priority);
+  // Sicherheits-Check: Wenn workOrder nicht existiert, schließe Modal
+  useEffect(() => {
+    if (!workOrder) {
+      console.error("EditWorkOrderModal: workOrder is undefined");
+      onClose();
+    }
+  }, [workOrder, onClose]);
+
+  // State mit Fallback-Werten
+  const [status, setStatus] = useState(workOrder?.status || "Neu");
+  const [priority, setPriority] = useState(workOrder?.priority || "Normal");
   const [assignedTo, setAssignedTo] = useState<number | undefined>(
-    workOrder.assignedTo
+    workOrder?.assignedTo
   );
 
-  // Nur Techniker zur Auswahl (Mechaniker, Elektriker)
+  // Wenn workOrder nicht existiert, zeige nichts
+  if (!workOrder) {
+    return null;
+  }
+
   const availableUsers = users.filter(
     (u) => u.role === "Mechaniker" || u.role === "Elektriker"
   );
@@ -40,7 +53,6 @@ function EditWorkOrderModal({
     // Erstelle automatische Kommentare bei Änderungen
     const newComments: WorkOrderComment[] = [];
 
-    // Status geändert?
     if (status !== workOrder.status) {
       newComments.push({
         id: Math.max(...comments.map((c) => c.id), 0) + 1 + newComments.length,
@@ -56,7 +68,6 @@ function EditWorkOrderModal({
       });
     }
 
-    // Priorität geändert?
     if (priority !== workOrder.priority) {
       newComments.push({
         id: Math.max(...comments.map((c) => c.id), 0) + 1 + newComments.length,
@@ -72,7 +83,6 @@ function EditWorkOrderModal({
       });
     }
 
-    // Zuweisung geändert?
     if (assignedTo !== workOrder.assignedTo && assignedTo) {
       newComments.push({
         id: Math.max(...comments.map((c) => c.id), 0) + 1 + newComments.length,
@@ -88,10 +98,50 @@ function EditWorkOrderModal({
       });
     }
 
-    // Füge alle neuen Kommentare hinzu
     newComments.forEach((comment) => addComment(comment));
 
-    // Update Work Order
+    // Erstelle Notifications für relevante User
+    const notificationsToCreate: number[] = [];
+
+    if (workOrder.assignedTo && workOrder.assignedTo !== currentUser.id) {
+      notificationsToCreate.push(workOrder.assignedTo);
+    }
+
+    if (workOrder.createdBy !== currentUser.id) {
+      notificationsToCreate.push(workOrder.createdBy);
+    }
+
+    notificationsToCreate.forEach((userId) => {
+      let message = "";
+
+      if (status !== workOrder.status) {
+        message = `Status geändert: ${workOrder.status} → ${status}`;
+      } else if (priority !== workOrder.priority) {
+        message = `Priorität geändert: ${workOrder.priority} → ${priority}`;
+      } else if (assignedTo !== workOrder.assignedTo) {
+        message = `Neuer Techniker zugewiesen: ${assignedUser?.name}`;
+      }
+
+      if (message) {
+        const notification = {
+          id: Math.max(...notifications.map((n) => n.id), 0) + 1,
+          userId,
+          type:
+            status !== workOrder.status
+              ? ("status_change" as const)
+              : ("assignment" as const),
+          workOrderId: workOrder.id,
+          workOrderTitle: workOrder.title,
+          message,
+          createdAt: new Date().toISOString(),
+          read: false,
+          createdBy: currentUser.id,
+          createdByName: currentUser.name,
+        };
+        addNotification(notification);
+      }
+    });
+
     const updatedWO: WorkOrder = {
       ...workOrder,
       status,
@@ -105,7 +155,6 @@ function EditWorkOrderModal({
     onClose();
   };
 
-  // Kann User zuweisen?
   const canAssign = permissions?.canAssignTickets || false;
 
   return (
@@ -175,9 +224,8 @@ function EditWorkOrderModal({
             </div>
           )}
 
-          {/* NEU: Kommentar-Sektion */}
           <div className="wo-edit-comments">
-            <CommentSection workOrderId={workOrder.id} />
+            <CommentSection workOrderId={workOrder.id} workOrder={workOrder} />
           </div>
         </div>
 
