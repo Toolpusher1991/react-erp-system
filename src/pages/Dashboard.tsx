@@ -1,78 +1,23 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useData } from "../contexts/DataContext";
 import { canAccessAsset } from "../utils/permissions";
 import UserManagement from "./UserManagement";
 import AssetManagement from "./AssetManagement";
 import WorkOrderManagement from "./WorkOrderManagement";
-import type { WorkOrder } from "../types";
-
-// Mock Work Orders für Dashboard-Statistiken
-const mockWorkOrders: WorkOrder[] = [
-  {
-    id: 1,
-    title: "Motor überhitzt",
-    description: "Motor auf T207 läuft zu heiß",
-    assetId: 1,
-    assetName: "T207",
-    type: "Mechanisch",
-    priority: "Hoch",
-    status: "In Arbeit",
-    createdBy: 2,
-    createdByName: "Anna E-Super",
-    assignedTo: 11,
-    assignedToName: "T207 Mechaniker",
-    createdAt: "2025-10-10T08:30:00",
-    updatedAt: "2025-10-10T09:15:00",
-    materialRequired: true,
-    materialStatus: "Bestellt",
-  },
-  {
-    id: 2,
-    title: "Elektrischer Ausfall Pumpe",
-    description: "Pumpe auf T208 reagiert nicht",
-    assetId: 2,
-    assetName: "T208",
-    type: "Elektrisch",
-    priority: "Kritisch",
-    status: "Zugewiesen",
-    createdBy: 3,
-    createdByName: "Tom M-Super",
-    assignedTo: 12,
-    assignedToName: "T208 Elektriker",
-    createdAt: "2025-10-10T10:00:00",
-    updatedAt: "2025-10-10T10:00:00",
-    materialRequired: true,
-    materialStatus: "Benötigt",
-  },
-  {
-    id: 3,
-    title: "Hydraulikschlauch undicht",
-    description: "Kleines Leck am Hydraulikschlauch",
-    assetId: 3,
-    assetName: "T700",
-    type: "Hydraulisch",
-    priority: "Normal",
-    status: "Neu",
-    createdBy: 6,
-    createdByName: "Sarah RSC",
-    createdAt: "2025-10-10T11:30:00",
-    updatedAt: "2025-10-10T11:30:00",
-    materialRequired: false,
-    materialStatus: "Nicht benötigt",
-  },
-];
+import NotificationBell from "../components/NotificationBell";
 
 function Dashboard() {
   const [currentPage, setCurrentPage] = useState<
     "users" | "assets" | "workorders"
   >("workorders");
 
-  // Hole currentUser und logout aus AuthContext
   const { currentUser, logout } = useAuth();
+  const { workOrders } = useData();
 
-  // Berechne Work Order Statistiken basierend auf User-Rechten
+  // ========== NEU: Berechne Work Order Statistiken aus DataContext ==========
   const visibleWorkOrders = currentUser
-    ? mockWorkOrders.filter((wo) => canAccessAsset(currentUser, wo.assetId))
+    ? workOrders.filter((wo) => canAccessAsset(currentUser, wo.assetId))
     : [];
 
   const openWorkOrders = visibleWorkOrders.filter(
@@ -87,6 +32,10 @@ function Dashboard() {
     (wo) => wo.assignedTo === currentUser?.id
   );
 
+  const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<
+    number | null
+  >(null);
+
   return (
     <div>
       {/* Logout Header */}
@@ -97,9 +46,17 @@ function Dashboard() {
           </span>
           <span className="user-role">({currentUser?.role})</span>
         </div>
-        <button onClick={logout} className="logout-btn">
-          🚪 Abmelden
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <NotificationBell
+            onOpenWorkOrder={(woId) => {
+              setCurrentPage("workorders");
+              setSelectedWorkOrderId(woId);
+            }}
+          />
+          <button onClick={logout} className="logout-btn">
+            🚪 Abmelden
+          </button>
+        </div>
       </div>
 
       {/* ========== NEU: Work Order Statistiken ========== */}
@@ -164,7 +121,9 @@ function Dashboard() {
       {/* Content */}
       {currentPage === "users" && <UserManagement />}
       {currentPage === "assets" && <AssetManagement />}
-      {currentPage === "workorders" && <WorkOrderManagement />}
+      {currentPage === "workorders" && (
+        <WorkOrderManagement initialSelectedId={selectedWorkOrderId} />
+      )}
     </div>
   );
 }

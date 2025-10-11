@@ -5,6 +5,7 @@ import type {
   Asset,
   WorkOrder,
   WorkOrderType,
+  WorkOrderCategory,
   WorkOrderPriority,
   User,
 } from "../types";
@@ -39,6 +40,7 @@ function CreateWorkOrderModal({
   const [description, setDescription] = useState("");
   const [assetId, setAssetId] = useState<number>(visibleAssets[0]?.id || 0);
   const [type, setType] = useState<WorkOrderType>("Mechanisch");
+  const [category, setCategory] = useState<WorkOrderCategory>("Im Betrieb");
   const [priority, setPriority] = useState<WorkOrderPriority>("Normal");
   const [assignedTo, setAssignedTo] = useState<number | undefined>(undefined);
   const [error, setError] = useState("");
@@ -48,7 +50,7 @@ function CreateWorkOrderModal({
   const [materialNumber, setMaterialNumber] = useState("");
   const [materialDescription, setMaterialDescription] = useState("");
 
-  // ========== NEU: Bilder-State ==========
+  // Bilder-State
   const [images, setImages] = useState<string[]>([]);
 
   // Funktion: Bild hochladen und in Base64 konvertieren
@@ -128,6 +130,7 @@ function CreateWorkOrderModal({
       assetId,
       assetName: selectedAsset.name,
       type,
+      category,
       priority,
       status: assignedTo ? "Zugewiesen" : "Neu",
       createdBy: currentUser.id,
@@ -231,6 +234,22 @@ function CreateWorkOrderModal({
               </div>
             </div>
 
+            {/* Kategorie - Wann durchführbar? */}
+            <div className="form-group">
+              <label>Durchführung möglich während</label>
+              <select
+                value={category}
+                onChange={(e) =>
+                  setCategory(e.target.value as WorkOrderCategory)
+                }
+              >
+                <option value="Im Betrieb">🛢️ Im Betrieb - Anlage läuft</option>
+                <option value="Einlagerung & Rig Moves">
+                  🚚 Einlagerung & Rig Moves - Stillstand
+                </option>
+              </select>
+            </div>
+
             {/* Zuweisung direkt beim Erstellen */}
             <div className="form-group">
               <label>Zuweisen an (optional)</label>
@@ -290,7 +309,7 @@ function CreateWorkOrderModal({
               </>
             )}
 
-            {/* ========== NEU: Bild-Upload ========== */}
+            {/* Bild-Upload */}
             <div className="form-group">
               <label>📷 Bilder hinzufügen (max 5, je max 5MB)</label>
               <input
