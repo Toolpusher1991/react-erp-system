@@ -6,6 +6,7 @@ import UserManagement from "./UserManagement";
 import AssetManagement from "./AssetManagement";
 import WorkOrderManagement from "./WorkOrderManagement";
 import NotificationBell from "../components/NotificationBell";
+import DebugResetButton from "../components/DebugResetButton";
 
 function Dashboard() {
   const [currentPage, setCurrentPage] = useState<
@@ -32,9 +33,9 @@ function Dashboard() {
     (wo) => wo.assignedTo === currentUser?.id
   );
 
-  const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<
-    number | null
-  >(null);
+  const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<number | null>(
+    null
+  );
 
   return (
     <div>
@@ -53,6 +54,7 @@ function Dashboard() {
               setSelectedWorkOrderId(woId);
             }}
           />
+          <DebugResetButton />
           <button onClick={logout} className="logout-btn">
             🚪 Abmelden
           </button>

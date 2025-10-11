@@ -220,6 +220,21 @@ const INITIAL_WORKORDERS: WorkOrder[] = [
     createdAt: "2025-10-10T11:30:00",
     updatedAt: "2025-10-10T11:30:00",
   },
+  {
+    id: 3,
+    title: "Hydraulikschlauch undicht",
+    description:
+      "Kleines Leck am Hydraulikschlauch, austauschen. Leichte Verschmutzung durch austretendes Öl.",
+    assetId: 3,
+    assetName: "T700",
+    type: "Hydraulisch",
+    priority: "Normal",
+    status: "Neu",
+    createdBy: 6,
+    createdByName: "Sarah RSC",
+    createdAt: "2025-10-10T11:30:00",
+    updatedAt: "2025-10-10T11:30:00",
+  },
 ];
 
 const INITIAL_COMMENTS: WorkOrderComment[] = [];
