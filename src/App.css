@@ -3062,3 +3062,306 @@ h1 {
     min-width: 800px;
   }
 }
+
+/* ==========================================
+   TASK LIST STYLING
+   ========================================== */
+
+.task-list-container {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.task-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.task-list-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--gray-900);
+}
+
+.task-progress-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  max-width: 300px;
+}
+
+.task-progress-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--gray-200);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.task-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--success), var(--success-light));
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.task-progress-text {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--gray-600);
+  min-width: 45px;
+  text-align: right;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.task-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--gray-400);
+}
+
+.task-item {
+  background: white;
+  border: 2px solid var(--gray-200);
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  transition: all 0.2s ease;
+}
+
+.task-item:hover {
+  border-color: var(--gray-300);
+  box-shadow: var(--shadow);
+}
+
+.task-item.task-completed {
+  background: rgba(16, 185, 129, 0.05);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.task-checkbox-container {
+  padding-top: 0.125rem;
+}
+
+.task-checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--success);
+}
+
+.task-checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.task-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-description {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.task-completed .task-description {
+  text-decoration: line-through;
+  color: var(--gray-500);
+}
+
+.task-metadata {
+  font-size: 0.8125rem;
+  color: var(--gray-500);
+  margin-top: 0.5rem;
+}
+
+.task-metadata strong {
+  color: var(--gray-700);
+  font-weight: 600;
+}
+
+.task-delete-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.125rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+}
+
+.task-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  opacity: 1;
+}
+
+.task-add-form {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--gray-200);
+}
+
+.task-add-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.task-add-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.task-add-btn {
+  background: var(--primary);
+  color: white;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.task-add-btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+}
+
+.task-add-btn:disabled {
+  background: var(--gray-300);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.task-warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-left: 4px solid var(--warning);
+}
+
+.task-success {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-left: 4px solid var(--success);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .task-list-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .task-progress-container {
+    width: 100%;
+    max-width: none;
+  }
+
+  .task-add-form {
+    flex-direction: column;
+  }
+
+  .task-add-btn {
+    width: 100%;
+  }
+}
+
+/* ==========================================
+   FERTIGSTELLEN BUTTON
+   ========================================== */
+
+.btn-wo-complete {
+  background: linear-gradient(135deg, var(--success), var(--success-light));
+  color: white;
+  padding: 0.875rem 1.75rem;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  flex: 1;
+}
+
+.btn-wo-complete:hover {
+  background: linear-gradient(135deg, var(--success-light), var(--success));
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-wo-complete:active {
+  transform: translateY(0);
+}
+
+/* Footer Layout anpassen */
+.wo-detail-footer {
+  display: flex;
+  gap: 1rem;
+}
+
+.wo-detail-footer .btn-wo-complete {
+  flex: 2; /* Fertigstellen Button größer */
+}
+
+.wo-detail-footer .btn-wo-edit {
+  flex: 1;
+}
+
+.wo-detail-footer .btn-wo-close {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .wo-detail-footer {
+    flex-direction: column;
+  }
+
+  .wo-detail-footer button {
+    width: 100%;
+  }
+}

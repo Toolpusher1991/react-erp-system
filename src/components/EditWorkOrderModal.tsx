@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
+import TaskList from "./TaskList";
 import type {
   WorkOrder,
   User,
   MaterialStatus,
   WorkOrderComment,
+  WorkOrderTask,
 } from "../types";
 
 interface EditWorkOrderModalProps {
@@ -44,6 +46,9 @@ function EditWorkOrderModal({
     workOrder.materialDescription || ""
   );
 
+  // Tasks State
+  const [tasks, setTasks] = useState<WorkOrderTask[]>(workOrder.tasks || []);
+
   // Nur Techniker zur Auswahl (Mechaniker, Elektriker)
   const availableUsers = users.filter(
     (u) => u.role === "Mechaniker" || u.role === "Elektriker"
@@ -53,6 +58,51 @@ function EditWorkOrderModal({
     if (!currentUser) return;
 
     const assignedUser = users.find((u) => u.id === assignedTo);
+
+    // ========== COMPLETION VALIDATION & SUPERVISOR NOTIFICATION ==========
+    const allTasksCompleted = tasks.every((t) => t.completed);
+    const hasRequiredTasks = tasks.length > 0;
+
+    if (status === "Erledigt" && hasRequiredTasks && !allTasksCompleted) {
+      alert(
+        "⚠️ Nicht alle Aufgaben wurden erledigt! Bitte alle Tasks abhaken."
+      );
+      return;
+    }
+
+    // Wenn Status auf "Erledigt" gesetzt wird UND alle Tasks erledigt:
+    if (
+      status === "Erledigt" &&
+      workOrder.status !== "Erledigt" &&
+      hasRequiredTasks &&
+      allTasksCompleted
+    ) {
+      // Finde zuständigen Supervisor basierend auf Work Order Type
+      const supervisorRole =
+        workOrder.type === "Elektrisch" ? "E-Supervisor" : "M-Supervisor";
+
+      const supervisor = users.find((u) => u.role === supervisorRole);
+
+      if (supervisor && currentUser) {
+        const notification = {
+          id: Math.max(...notifications.map((n) => n.id), 0) + 1,
+          userId: supervisor.id,
+          type: "status_change" as const,
+          workOrderId: workOrder.id,
+          workOrderTitle: workOrder.title,
+          message: `${currentUser.name} hat Work Order #${workOrder.id} als erledigt markiert und alle Aufgaben abgeschlossen. Bitte prüfen.`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          createdBy: currentUser.id,
+          createdByName: currentUser.name,
+        };
+        addNotification(notification);
+        console.log(
+          `🔔 Completion Notification an ${supervisorRole}:`,
+          supervisor.name
+        );
+      }
+    }
 
     // ========== NOTIFICATION LOGIC ==========
     const notifyUsers: number[] = [];
@@ -201,6 +251,8 @@ function EditWorkOrderModal({
       materialStatus: materialRequired ? materialStatus : "Nicht benötigt",
       materialNumber: materialRequired ? materialNumber : undefined,
       materialDescription: materialRequired ? materialDescription : undefined,
+      // Tasks speichern
+      tasks: tasks.length > 0 ? tasks : undefined,
     };
 
     onUpdateWorkOrder(updatedWO);
@@ -342,6 +394,19 @@ function EditWorkOrderModal({
               </div>
             </>
           )}
+
+          {/* Tasks Section */}
+          <div
+            className="form-group"
+            style={{
+              borderTop: "2px solid #e5e7eb",
+              paddingTop: "1.5rem",
+              marginTop: "1.5rem",
+            }}
+          >
+            <h3 style={{ marginBottom: "1rem" }}>📋 Aufgaben</h3>
+            <TaskList tasks={tasks} onUpdateTasks={setTasks} />
+          </div>
         </div>
 
         <div className="wo-edit-footer">

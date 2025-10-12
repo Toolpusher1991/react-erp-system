@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
 import { filterAssetsForUser } from "../utils/permissions";
+import TaskList from "./TaskList";
 import type {
   Asset,
   WorkOrder,
   WorkOrderType,
   WorkOrderCategory,
   WorkOrderPriority,
+  WorkOrderTask,
   User,
 } from "../types";
 
@@ -46,6 +48,7 @@ function CreateWorkOrderModal({
   const [priority, setPriority] = useState<WorkOrderPriority>("Normal");
   const [assignedTo, setAssignedTo] = useState<number | undefined>(undefined);
   const [error, setError] = useState("");
+  const [tasks, setTasks] = useState<WorkOrderTask[]>([]);
 
   // Material-Felder
   const [materialRequired, setMaterialRequired] = useState(false);
@@ -150,6 +153,7 @@ function CreateWorkOrderModal({
         : undefined,
       // Bilder
       images: images.length > 0 ? images : undefined,
+      tasks: tasks.length > 0 ? tasks : undefined, // Tasks hinzufügen
     };
 
     // ========== NOTIFICATION: Assignment bei Erstellung ==========
@@ -280,6 +284,14 @@ function CreateWorkOrderModal({
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Tasks */}
+            <div className="form-group">
+              <h3 style={{ marginTop: "2rem", marginBottom: "1rem" }}>
+                📋 Aufgaben (optional)
+              </h3>
+              <TaskList tasks={tasks} onUpdateTasks={setTasks} />
             </div>
 
             {/* Material-Management */}

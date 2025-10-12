@@ -6,7 +6,7 @@ import EditAssetModal from "../components/EditAssetModal";
 import type { Asset } from "../types";
 
 function AssetManagement() {
-  const { currentUser, permissions } = useAuth();
+  const { currentUser } = useAuth();
   const { assets, updateAsset } = useData();
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [filterStatus, setFilterStatus] = useState<"Alle" | Asset["status"]>(
@@ -16,8 +16,6 @@ function AssetManagement() {
   const visibleAssets = currentUser
     ? filterAssetsForUser(currentUser, assets)
     : [];
-
-  // Nach Status filtern
   const filteredAssets =
     filterStatus === "Alle"
       ? visibleAssets
@@ -57,7 +55,6 @@ function AssetManagement() {
     }
   };
 
-  // Statistiken
   const stats = {
     total: visibleAssets.length,
     operational: visibleAssets.filter((a) => a.status === "Betrieb").length,
@@ -70,7 +67,6 @@ function AssetManagement() {
     <div className="container">
       <h1>🛢️ Anlagenverwaltung</h1>
 
-      {/* Statistik-Übersicht */}
       <div className="asset-overview">
         <div className="overview-card">
           <h3>Gesamt</h3>
@@ -94,7 +90,6 @@ function AssetManagement() {
         </div>
       </div>
 
-      {/* Filter-Buttons */}
       <div className="asset-filter-buttons">
         <button
           className={`filter-btn ${filterStatus === "Alle" ? "active" : ""}`}
@@ -130,7 +125,6 @@ function AssetManagement() {
         </button>
       </div>
 
-      {/* Tabelle */}
       <div className="asset-table-container">
         <table className="asset-table">
           <thead>

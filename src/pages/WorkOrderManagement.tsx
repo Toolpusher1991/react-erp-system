@@ -5,7 +5,8 @@ import { canAccessAsset, filterAssetsForUser } from "../utils/permissions";
 import CreateWorkOrderModal from "../components/CreateWorkOrderModal";
 import EditWorkOrderModal from "../components/EditWorkOrderModal";
 import CommentSection from "../components/CommentSection";
-import type { WorkOrder, Asset } from "../types";
+import TaskList from "../components/TaskList";
+import type { WorkOrder, Asset, WorkOrderComment } from "../types";
 
 interface WorkOrderManagementProps {
   initialSelectedId?: number | null;
@@ -21,6 +22,8 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
     updateWorkOrder,
     addNotification,
     notifications,
+    addComment,
+    comments,
   } = useData();
 
   // States
@@ -115,6 +118,115 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
         newWO.assignedTo
       );
     }
+  };
+
+  // ========== FERTIGSTELLEN FUNKTION ==========
+  const handleCompleteWorkOrder = () => {
+    if (!selectedWO || !currentUser) return;
+
+    const hasTasks = selectedWO.tasks && selectedWO.tasks.length > 0;
+    const allTasksCompleted =
+      !hasTasks || selectedWO.tasks!.every((t) => t.completed);
+
+    // Validation: Prüfe ob alle Tasks erledigt sind
+    if (hasTasks && !allTasksCompleted) {
+      const openTasks = selectedWO.tasks!.filter((t) => !t.completed);
+      alert(
+        `⚠️ Noch ${
+          openTasks.length
+        } Aufgabe(n) offen!\n\nBitte alle Tasks abhaken bevor der Work Order fertiggestellt werden kann:\n\n${openTasks
+          .map((t) => `• ${t.description}`)
+          .join("\n")}`
+      );
+      return;
+    }
+
+    // Bestätigung
+    if (
+      !window.confirm(
+        `Work Order #${selectedWO.id} "${selectedWO.title}" als erledigt markieren?`
+      )
+    ) {
+      return;
+    }
+
+    // Update Status auf "Erledigt"
+    const updatedWO: WorkOrder = {
+      ...selectedWO,
+      status: "Erledigt",
+      completedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // System-Kommentar
+    const statusComment: WorkOrderComment = {
+      id: Math.max(...comments.map((c) => c.id), 0) + 1,
+      workOrderId: selectedWO.id,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      comment: "",
+      timestamp: new Date().toISOString(),
+      type: "status_change",
+      oldValue: selectedWO.status,
+      newValue: "Erledigt",
+    };
+    addComment(statusComment);
+
+    // ========== SUPERVISOR NOTIFICATION ==========
+    const supervisorRole =
+      selectedWO.type === "Elektrisch" ? "E-Supervisor" : "M-Supervisor";
+    const supervisor = users.find((u) => u.role === supervisorRole);
+
+    if (supervisor) {
+      const notification = {
+        id: Math.max(...notifications.map((n) => n.id), 0) + 1,
+        userId: supervisor.id,
+        type: "status_change" as const,
+        workOrderId: selectedWO.id,
+        workOrderTitle: selectedWO.title,
+        message: hasTasks
+          ? `${currentUser.name} hat Work Order #${
+              selectedWO.id
+            } fertiggestellt und alle ${
+              selectedWO.tasks!.length
+            } Aufgaben abgeschlossen. Bitte prüfen.`
+          : `${currentUser.name} hat Work Order #${selectedWO.id} als erledigt markiert. Bitte prüfen.`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        createdBy: currentUser.id,
+        createdByName: currentUser.name,
+      };
+      addNotification(notification);
+      console.log(
+        `🔔 Completion Notification an ${supervisorRole}:`,
+        supervisor.name
+      );
+    }
+
+    // Benachrichtige auch Creator wenn nicht der aktuelle User
+    if (selectedWO.createdBy !== currentUser.id) {
+      const notification = {
+        id: Math.max(...notifications.map((n) => n.id), 0) + 1,
+        userId: selectedWO.createdBy,
+        type: "status_change" as const,
+        workOrderId: selectedWO.id,
+        workOrderTitle: selectedWO.title,
+        message: `${currentUser.name} hat deinen Work Order #${selectedWO.id} fertiggestellt.`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        createdBy: currentUser.id,
+        createdByName: currentUser.name,
+      };
+      addNotification(notification);
+    }
+
+    // Speichern & Schließen
+    updateWorkOrder(updatedWO);
+    setSelectedWO(null);
+
+    // Success Message
+    alert(`✅ Work Order #${selectedWO.id} erfolgreich fertiggestellt!`);
   };
 
   // Asset Icon
@@ -472,6 +584,22 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
                 </div>
               </div>
 
+              {/* ========== TASKS SECTION ========== */}
+              {selectedWO.tasks && selectedWO.tasks.length > 0 && (
+                <div className="wo-detail-section">
+                  <h3>📋 Aufgaben</h3>
+                  <TaskList
+                    tasks={selectedWO.tasks}
+                    onUpdateTasks={(updatedTasks) => {
+                      const updated = { ...selectedWO, tasks: updatedTasks };
+                      updateWorkOrder(updated);
+                      setSelectedWO(updated);
+                    }}
+                    readOnly={selectedWO.status === "Erledigt"}
+                  />
+                </div>
+              )}
+
               <div className="wo-detail-section">
                 <CommentSection
                   workOrderId={selectedWO.id}
@@ -481,6 +609,17 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
             </div>
 
             <div className="wo-detail-footer">
+              {/* ========== FERTIGSTELLEN BUTTON ========== */}
+              {selectedWO.status !== "Erledigt" &&
+                selectedWO.status !== "Abgebrochen" && (
+                  <button
+                    className="btn-wo-complete"
+                    onClick={handleCompleteWorkOrder}
+                  >
+                    ✅ Fertigstellen
+                  </button>
+                )}
+
               <button
                 className="btn-wo-edit"
                 onClick={() => {
@@ -488,7 +627,7 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
                   setSelectedWO(null);
                 }}
               >
-                Bearbeiten
+                ✏️ Bearbeiten
               </button>
               <button
                 className="btn-wo-close"
