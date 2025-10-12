@@ -2,7 +2,6 @@
 // TYPES & INTERFACES FÜR DAS ERP-SYSTEM
 // ==========================================
 
-// UserRole: Die 6 Benutzerrollen im System
 export type UserRole = 
   | 'Admin'
   | 'E-Supervisor'
@@ -11,7 +10,6 @@ export type UserRole =
   | 'Elektriker'
   | 'RSC'
 
-// User Interface
 export interface User {
   id: number
   name: string
@@ -22,7 +20,6 @@ export interface User {
   assignedAssets: number[]
 }
 
-// Permissions Interface
 export interface Permissions {
   canCreateUser: boolean
   canEditUser: boolean
@@ -35,7 +32,7 @@ export interface Permissions {
 }
 
 // ==========================================
-// ANLAGEN (ASSETS) TYPES
+// ANLAGEN (ASSETS)
 // ==========================================
 
 export type AssetStatus = 
@@ -67,7 +64,7 @@ export interface Asset {
 }
 
 // ==========================================
-// WORK ORDER TYPES
+// WORK ORDERS
 // ==========================================
 
 export type WorkOrderPriority = 
@@ -125,7 +122,7 @@ export interface WorkOrder {
 }
 
 // ==========================================
-// COMMENT & NOTIFICATION TYPES
+// COMMENTS & NOTIFICATIONS
 // ==========================================
 
 export type CommentType = 

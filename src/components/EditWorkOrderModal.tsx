@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import type { WorkOrder, User, MaterialStatus } from "../types";
+import { useData } from "../contexts/DataContext";
+import type {
+  WorkOrder,
+  User,
+  MaterialStatus,
+  WorkOrderComment,
+} from "../types";
 
 interface EditWorkOrderModalProps {
   workOrder: WorkOrder;
@@ -16,14 +22,13 @@ function EditWorkOrderModal({
   onUpdateWorkOrder,
 }: EditWorkOrderModalProps) {
   const { currentUser, permissions } = useAuth();
+  const { addNotification, notifications, addComment, comments } = useData();
 
   const [status, setStatus] = useState(workOrder.status);
   const [priority, setPriority] = useState(workOrder.priority);
   const [assignedTo, setAssignedTo] = useState<number | undefined>(
     workOrder.assignedTo
   );
-
-  // ========== NEU: Material-States ==========
   const [materialRequired, setMaterialRequired] = useState(
     workOrder.materialRequired
   );
@@ -37,13 +42,29 @@ function EditWorkOrderModal({
     workOrder.materialDescription || ""
   );
 
-  // Nur Techniker zur Auswahl (Mechaniker, Elektriker)
   const availableUsers = users.filter(
     (u) => u.role === "Mechaniker" || u.role === "Elektriker"
   );
 
   const handleSave = () => {
+    console.log("🔵 SAVE BUTTON CLICKED");
+
+    if (!currentUser) {
+      console.error("❌ Kein currentUser!");
+      return;
+    }
+
+    console.log("🔵 Current User:", currentUser.name);
+
     const assignedUser = users.find((u) => u.id === assignedTo);
+    const oldStatus = workOrder.status;
+    const oldPriority = workOrder.priority;
+    const oldAssignedTo = workOrder.assignedTo;
+
+    console.log("🔵 Old vs New:");
+    console.log("  Status:", oldStatus, "→", status);
+    console.log("  Priority:", oldPriority, "→", priority);
+    console.log("  Assigned:", oldAssignedTo, "→", assignedTo);
 
     const updatedWO: WorkOrder = {
       ...workOrder,
@@ -52,7 +73,6 @@ function EditWorkOrderModal({
       assignedTo,
       assignedToName: assignedUser?.name,
       updatedAt: new Date().toISOString(),
-      // Material-Updates
       materialRequired,
       materialStatus: materialRequired ? materialStatus : "Nicht benötigt",
       materialNumber: materialRequired ? materialNumber : undefined,
@@ -60,13 +80,127 @@ function EditWorkOrderModal({
     };
 
     onUpdateWorkOrder(updatedWO);
+    console.log("✅ Work Order updated");
+
+    // ========== NOTIFICATIONS & COMMENTS ==========
+
+    // 1. STATUS GEÄNDERT
+    if (oldStatus !== status) {
+      console.log("🟢 Status wurde geändert!");
+
+      const statusComment: WorkOrderComment = {
+        id: Math.max(0, ...comments.map((c) => c.id)) + 1,
+        workOrderId: workOrder.id,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        comment: `Status geändert: ${oldStatus} → ${status}`,
+        timestamp: new Date().toISOString(),
+        type: "status_change",
+        oldValue: oldStatus,
+        newValue: status,
+      };
+
+      console.log("📝 Creating status comment:", statusComment);
+      addComment(statusComment);
+
+      const notifyUsers: number[] = [];
+      if (workOrder.assignedTo && workOrder.assignedTo !== currentUser.id) {
+        notifyUsers.push(workOrder.assignedTo);
+      }
+      if (
+        workOrder.createdBy !== currentUser.id &&
+        !notifyUsers.includes(workOrder.createdBy)
+      ) {
+        notifyUsers.push(workOrder.createdBy);
+      }
+
+      console.log("📬 Notifying users:", notifyUsers);
+
+      notifyUsers.forEach((userId) => {
+        const notification = {
+          id: Math.max(0, ...notifications.map((n) => n.id)) + 1,
+          userId,
+          type: "status_change" as const,
+          workOrderId: workOrder.id,
+          workOrderTitle: workOrder.title,
+          message: `${currentUser.name} hat den Status auf "${status}" geändert`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          createdBy: currentUser.id,
+          createdByName: currentUser.name,
+        };
+        console.log("📨 Creating notification:", notification);
+        addNotification(notification);
+      });
+    }
+
+    // 2. PRIORITÄT GEÄNDERT
+    if (oldPriority !== priority) {
+      console.log("🟡 Priorität wurde geändert!");
+
+      const priorityComment: WorkOrderComment = {
+        id: Math.max(0, ...comments.map((c) => c.id)) + 1,
+        workOrderId: workOrder.id,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        comment: `Priorität geändert: ${oldPriority} → ${priority}`,
+        timestamp: new Date().toISOString(),
+        type: "priority_change",
+        oldValue: oldPriority,
+        newValue: priority,
+      };
+
+      console.log("📝 Creating priority comment:", priorityComment);
+      addComment(priorityComment);
+    }
+
+    // 3. ZUWEISUNG GEÄNDERT
+    if (oldAssignedTo !== assignedTo) {
+      console.log("🟣 Zuweisung wurde geändert!");
+
+      const assignedUserName = assignedUser?.name || "Niemand";
+
+      const assignmentComment: WorkOrderComment = {
+        id: Math.max(0, ...comments.map((c) => c.id)) + 1,
+        workOrderId: workOrder.id,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        comment: `Zugewiesen an: ${assignedUserName}`,
+        timestamp: new Date().toISOString(),
+        type: "assignment",
+        newValue: assignedUserName,
+      };
+
+      console.log("📝 Creating assignment comment:", assignmentComment);
+      addComment(assignmentComment);
+
+      if (assignedTo && assignedTo !== currentUser.id) {
+        const notification = {
+          id: Math.max(0, ...notifications.map((n) => n.id)) + 1,
+          userId: assignedTo,
+          type: "assignment" as const,
+          workOrderId: workOrder.id,
+          workOrderTitle: workOrder.title,
+          message: `${currentUser.name} hat dir diesen Work Order zugewiesen`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          createdBy: currentUser.id,
+          createdByName: currentUser.name,
+        };
+
+        console.log("📨 Creating assignment notification:", notification);
+        addNotification(notification);
+      }
+    }
+
+    console.log("✅ All notifications and comments created!");
     onClose();
   };
 
-  // Kann User zuweisen?
   const canAssign = permissions?.canAssignTickets || false;
-
-  // Kann User Material-Status ändern? (RSC oder Admin)
   const canManageMaterial =
     currentUser?.role === "RSC" || currentUser?.role === "Admin";
 
@@ -137,7 +271,6 @@ function EditWorkOrderModal({
             </div>
           )}
 
-          {/* ========== NEU: Material-Management ========== */}
           <div
             className="form-group"
             style={{
@@ -202,7 +335,7 @@ function EditWorkOrderModal({
 
         <div className="wo-edit-footer">
           <button onClick={handleSave} className="btn-edit-save">
-            Speichern
+            💾 Speichern
           </button>
           <button onClick={onClose} className="btn-edit-cancel">
             Abbrechen

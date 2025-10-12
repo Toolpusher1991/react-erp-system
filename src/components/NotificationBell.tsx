@@ -1,8 +1,3 @@
-// ==========================================
-// NOTIFICATION BELL COMPONENT
-// ==========================================
-// Zeigt Bell-Icon mit Badge und Dropdown
-
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
@@ -24,12 +19,21 @@ function NotificationBell({ onOpenWorkOrder }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (currentUser) {
+      const myNotifications = getNotificationsForUser(currentUser.id);
+      const unread = getUnreadCount(currentUser.id);
+      console.log("🔔 NotificationBell for:", currentUser.name);
+      console.log("🔔 My notifications:", myNotifications.length);
+      console.log("🔔 Unread count:", unread);
+    }
+  }, [currentUser, notifications]);
+
   if (!currentUser) return null;
 
   const userNotifications = getNotificationsForUser(currentUser.id);
   const unreadCount = getUnreadCount(currentUser.id);
 
-  // Schließe Dropdown bei Click außerhalb
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -39,16 +43,15 @@ function NotificationBell({ onOpenWorkOrder }: NotificationBellProps) {
         setIsOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Notification Click Handler
   const handleNotificationClick = (
     notificationId: number,
     workOrderId: number
   ) => {
+    console.log("🔔 Notification clicked:", notificationId);
     markNotificationAsRead(notificationId);
     setIsOpen(false);
     if (onOpenWorkOrder) {
@@ -56,24 +59,21 @@ function NotificationBell({ onOpenWorkOrder }: NotificationBellProps) {
     }
   };
 
-  // Alle als gelesen markieren
   const handleMarkAllRead = () => {
+    console.log("🔔 Marking all as read");
     markAllNotificationsAsRead(currentUser.id);
   };
 
-  // Zeitformat
   const getTimeAgo = (timestamp: string) => {
     const now = new Date();
     const then = new Date(timestamp);
     const seconds = Math.floor((now.getTime() - then.getTime()) / 1000);
-
     if (seconds < 60) return "gerade eben";
     if (seconds < 3600) return `vor ${Math.floor(seconds / 60)} Min`;
     if (seconds < 86400) return `vor ${Math.floor(seconds / 3600)} Std`;
     return `vor ${Math.floor(seconds / 86400)} Tagen`;
   };
 
-  // Icon für Notification-Type
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case "comment":

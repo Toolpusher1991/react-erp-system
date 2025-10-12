@@ -5,18 +5,17 @@ import { canAccessAsset } from "../utils/permissions";
 import UserManagement from "./UserManagement";
 import AssetManagement from "./AssetManagement";
 import WorkOrderManagement from "./WorkOrderManagement";
+import PreventiveMaintenance from "./PreventiveMaintenance";
 import NotificationBell from "../components/NotificationBell";
-import DebugResetButton from "../components/DebugResetButton";
 
 function Dashboard() {
   const [currentPage, setCurrentPage] = useState<
-    "users" | "assets" | "workorders"
+    "users" | "assets" | "workorders" | "pm"
   >("workorders");
 
   const { currentUser, logout } = useAuth();
   const { workOrders } = useData();
 
-  // ========== NEU: Berechne Work Order Statistiken aus DataContext ==========
   const visibleWorkOrders = currentUser
     ? workOrders.filter((wo) => canAccessAsset(currentUser, wo.assetId))
     : [];
@@ -39,7 +38,6 @@ function Dashboard() {
 
   return (
     <div>
-      {/* Logout Header */}
       <div className="dashboard-header">
         <div>
           <span>
@@ -54,14 +52,12 @@ function Dashboard() {
               setSelectedWorkOrderId(woId);
             }}
           />
-          <DebugResetButton />
           <button onClick={logout} className="logout-btn">
             🚪 Abmelden
           </button>
         </div>
       </div>
 
-      {/* ========== NEU: Work Order Statistiken ========== */}
       <div className="dashboard-stats">
         <div className="dashboard-stat-card open">
           <div className="stat-icon">🎫</div>
@@ -96,7 +92,6 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="dashboard-nav">
         <button
           className={currentPage === "users" ? "nav-btn active" : "nav-btn"}
@@ -118,14 +113,20 @@ function Dashboard() {
         >
           🎫 Work Orders
         </button>
+        <button
+          className={currentPage === "pm" ? "nav-btn active" : "nav-btn"}
+          onClick={() => setCurrentPage("pm")}
+        >
+          📅 Wartungsplan (SAP)
+        </button>
       </nav>
 
-      {/* Content */}
       {currentPage === "users" && <UserManagement />}
       {currentPage === "assets" && <AssetManagement />}
       {currentPage === "workorders" && (
         <WorkOrderManagement initialSelectedId={selectedWorkOrderId} />
       )}
+      {currentPage === "pm" && <PreventiveMaintenance />}
     </div>
   );
 }
