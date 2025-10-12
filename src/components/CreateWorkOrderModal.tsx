@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useData } from "../contexts/DataContext";
 import { filterAssetsForUser } from "../utils/permissions";
 import type {
   Asset,
@@ -24,6 +25,7 @@ function CreateWorkOrderModal({
   onCreateWorkOrder,
 }: CreateWorkOrderModalProps) {
   const { currentUser } = useAuth();
+  const { addNotification, notifications } = useData();
 
   // Nur Anlagen zeigen, die der User sehen darf
   const visibleAssets = currentUser
@@ -149,6 +151,16 @@ function CreateWorkOrderModal({
       // Bilder
       images: images.length > 0 ? images : undefined,
     };
+
+    // ========== NOTIFICATION: Assignment bei Erstellung ==========
+    if (assignedTo && assignedTo !== currentUser.id) {
+      // Wir können hier noch keine ID haben, da der WO noch nicht erstellt wurde
+      // Daher müssen wir das in der Parent-Komponente machen
+      // Aber wir markieren es hier
+      console.log(
+        "🔔 WO wird mit Assignment erstellt - Notification sollte folgen"
+      );
+    }
 
     onCreateWorkOrder(newWorkOrder);
     onClose();
@@ -340,7 +352,7 @@ function CreateWorkOrderModal({
 
           <div className="wo-create-footer">
             <button type="submit" className="btn-create-submit">
-              Work Order erstellen
+              ✅ Work Order erstellen
             </button>
             <button
               type="button"

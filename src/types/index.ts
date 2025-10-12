@@ -2,6 +2,7 @@
 // TYPES & INTERFACES FÜR DAS ERP-SYSTEM
 // ==========================================
 
+// UserRole: Die 6 Benutzerrollen im System
 export type UserRole = 
   | 'Admin'
   | 'E-Supervisor'
@@ -10,6 +11,7 @@ export type UserRole =
   | 'Elektriker'
   | 'RSC'
 
+// User Interface
 export interface User {
   id: number
   name: string
@@ -20,6 +22,7 @@ export interface User {
   assignedAssets: number[]
 }
 
+// Permissions Interface
 export interface Permissions {
   canCreateUser: boolean
   canEditUser: boolean
@@ -32,7 +35,7 @@ export interface Permissions {
 }
 
 // ==========================================
-// ANLAGEN (ASSETS)
+// ANLAGEN (ASSETS) TYPES
 // ==========================================
 
 export type AssetStatus = 
@@ -64,7 +67,7 @@ export interface Asset {
 }
 
 // ==========================================
-// WORK ORDERS
+// WORK ORDER TYPES
 // ==========================================
 
 export type WorkOrderPriority = 
@@ -114,22 +117,23 @@ export interface WorkOrder {
   updatedAt: string
   completedAt?: string
   notes?: string
+  // Material-Management
   materialRequired: boolean
   materialStatus: MaterialStatus
   materialNumber?: string
   materialDescription?: string
+  // Bilder
   images?: string[]
+  // SAP Integration
+  sapOrderNumber?: string
+  sapBasicStartDate?: string
+  sapEquipment?: string
+  sapFunctionalLocation?: string
 }
 
 // ==========================================
-// COMMENTS & NOTIFICATIONS
+// COMMENT TYPES
 // ==========================================
-
-export type CommentType = 
-  | 'comment' 
-  | 'status_change' 
-  | 'assignment' 
-  | 'priority_change'
 
 export interface WorkOrderComment {
   id: number
@@ -139,20 +143,19 @@ export interface WorkOrderComment {
   userRole: string
   comment: string
   timestamp: string
-  type: CommentType
+  type: 'comment' | 'status_change' | 'assignment' | 'priority_change'
   oldValue?: string
   newValue?: string
 }
 
-export type NotificationType = 
-  | 'comment' 
-  | 'assignment' 
-  | 'status_change'
+// ==========================================
+// NOTIFICATION TYPES
+// ==========================================
 
 export interface Notification {
   id: number
   userId: number
-  type: NotificationType
+  type: 'comment' | 'assignment' | 'status_change'
   workOrderId: number
   workOrderTitle: string
   message: string
@@ -160,4 +163,23 @@ export interface Notification {
   read: boolean
   createdBy: number
   createdByName: string
+}
+
+// ==========================================
+// SAP PREVENTIVE MAINTENANCE TYPES
+// ==========================================
+
+export interface SAPMaintenanceItem {
+  id: string
+  orderType: 'PM01' | 'PM02'
+  mainWorkCenter: 'ELEC' | 'MECH'
+  orderNumber: string
+  description: string
+  actualRelease: string
+  basicStartDate: string // YYYY-MM-DD
+  equipment: string
+  descriptionDetail: string
+  functionalLocation: string
+  systemStatus: string
+  asset: string // T207, T208, T700, T46
 }

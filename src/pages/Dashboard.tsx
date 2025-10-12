@@ -10,7 +10,7 @@ import NotificationBell from "../components/NotificationBell";
 
 function Dashboard() {
   const [currentPage, setCurrentPage] = useState<
-    "users" | "assets" | "workorders" | "pm"
+    "users" | "assets" | "workorders" | "sappm"
   >("workorders");
 
   const { currentUser, logout } = useAuth();
@@ -38,6 +38,7 @@ function Dashboard() {
 
   return (
     <div>
+      {/* Logout Header */}
       <div className="dashboard-header">
         <div>
           <span>
@@ -58,6 +59,7 @@ function Dashboard() {
         </div>
       </div>
 
+      {/* Dashboard Statistics */}
       <div className="dashboard-stats">
         <div className="dashboard-stat-card open">
           <div className="stat-icon">🎫</div>
@@ -92,6 +94,7 @@ function Dashboard() {
         </div>
       </div>
 
+      {/* Navigation */}
       <nav className="dashboard-nav">
         <button
           className={currentPage === "users" ? "nav-btn active" : "nav-btn"}
@@ -114,19 +117,20 @@ function Dashboard() {
           🎫 Work Orders
         </button>
         <button
-          className={currentPage === "pm" ? "nav-btn active" : "nav-btn"}
-          onClick={() => setCurrentPage("pm")}
+          className={currentPage === "sappm" ? "nav-btn active" : "nav-btn"}
+          onClick={() => setCurrentPage("sappm")}
         >
-          📅 Wartungsplan (SAP)
+          📋 SAP Preventive Maintenance
         </button>
       </nav>
 
+      {/* Content */}
       {currentPage === "users" && <UserManagement />}
       {currentPage === "assets" && <AssetManagement />}
       {currentPage === "workorders" && (
         <WorkOrderManagement initialSelectedId={selectedWorkOrderId} />
       )}
-      {currentPage === "pm" && <PreventiveMaintenance />}
+      {currentPage === "sappm" && <PreventiveMaintenance />}
     </div>
   );
 }

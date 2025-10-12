@@ -13,8 +13,15 @@ interface WorkOrderManagementProps {
 
 function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
   const { currentUser } = useAuth();
-  const { workOrders, assets, users, addWorkOrder, updateWorkOrder } =
-    useData();
+  const {
+    workOrders,
+    assets,
+    users,
+    addWorkOrder,
+    updateWorkOrder,
+    addNotification,
+    notifications,
+  } = useData();
 
   // States
   const [selectedAssetId, setSelectedAssetId] = useState<number | null>(null);
@@ -81,7 +88,33 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
       workOrders.length > 0 ? Math.max(...workOrders.map((wo) => wo.id)) : 0;
     const newId = maxId + 1;
     const workOrderWithId: WorkOrder = { ...newWO, id: newId };
+
     addWorkOrder(workOrderWithId);
+
+    // ========== NOTIFICATION: Assignment bei Erstellung ==========
+    if (
+      newWO.assignedTo &&
+      currentUser &&
+      newWO.assignedTo !== currentUser.id
+    ) {
+      const notification = {
+        id: Math.max(...notifications.map((n) => n.id), 0) + 1,
+        userId: newWO.assignedTo,
+        type: "assignment" as const,
+        workOrderId: newId,
+        workOrderTitle: newWO.title,
+        message: `${currentUser.name} hat dir einen neuen Work Order zugewiesen`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        createdBy: currentUser.id,
+        createdByName: currentUser.name,
+      };
+      addNotification(notification);
+      console.log(
+        "🔔 Assignment Notification bei WO-Erstellung für User:",
+        newWO.assignedTo
+      );
+    }
   };
 
   // Asset Icon

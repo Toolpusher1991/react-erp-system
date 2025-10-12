@@ -1,5 +1,5 @@
 // ==========================================
-// DATA CONTEXT - MIT COMMENTS & NOTIFICATIONS
+// DATA CONTEXT - VOLLSTÄNDIG MIT SAP & NOTIFICATIONS
 // ==========================================
 
 import { createContext, useContext, type ReactNode } from "react";
@@ -10,6 +10,7 @@ import type {
   WorkOrder,
   WorkOrderComment,
   Notification,
+  SAPMaintenanceItem,
 } from "../types";
 
 // ==========================================
@@ -179,6 +180,7 @@ const INITIAL_WORKORDERS: WorkOrder[] = [
     assetId: 1,
     assetName: "T207",
     type: "Mechanisch",
+    category: "Im Betrieb",
     priority: "Hoch",
     status: "In Arbeit",
     createdBy: 2,
@@ -187,6 +189,8 @@ const INITIAL_WORKORDERS: WorkOrder[] = [
     assignedToName: "T207 Mechaniker",
     createdAt: "2025-10-10T08:30:00",
     updatedAt: "2025-10-10T09:15:00",
+    materialRequired: false,
+    materialStatus: "Nicht benötigt",
   },
   {
     id: 2,
@@ -196,6 +200,7 @@ const INITIAL_WORKORDERS: WorkOrder[] = [
     assetId: 2,
     assetName: "T208",
     type: "Elektrisch",
+    category: "Im Betrieb",
     priority: "Kritisch",
     status: "Zugewiesen",
     createdBy: 3,
@@ -204,6 +209,8 @@ const INITIAL_WORKORDERS: WorkOrder[] = [
     assignedToName: "T208 Elektriker",
     createdAt: "2025-10-10T10:00:00",
     updatedAt: "2025-10-10T10:00:00",
+    materialRequired: false,
+    materialStatus: "Nicht benötigt",
   },
   {
     id: 3,
@@ -213,32 +220,21 @@ const INITIAL_WORKORDERS: WorkOrder[] = [
     assetId: 3,
     assetName: "T700",
     type: "Hydraulisch",
+    category: "Im Betrieb",
     priority: "Normal",
     status: "Neu",
     createdBy: 6,
     createdByName: "Sarah RSC",
     createdAt: "2025-10-10T11:30:00",
     updatedAt: "2025-10-10T11:30:00",
-  },
-  {
-    id: 3,
-    title: "Hydraulikschlauch undicht",
-    description:
-      "Kleines Leck am Hydraulikschlauch, austauschen. Leichte Verschmutzung durch austretendes Öl.",
-    assetId: 3,
-    assetName: "T700",
-    type: "Hydraulisch",
-    priority: "Normal",
-    status: "Neu",
-    createdBy: 6,
-    createdByName: "Sarah RSC",
-    createdAt: "2025-10-10T11:30:00",
-    updatedAt: "2025-10-10T11:30:00",
+    materialRequired: false,
+    materialStatus: "Nicht benötigt",
   },
 ];
 
 const INITIAL_COMMENTS: WorkOrderComment[] = [];
 const INITIAL_NOTIFICATIONS: Notification[] = [];
+const INITIAL_SAP_DATA: SAPMaintenanceItem[] = [];
 
 // ==========================================
 // CONTEXT INTERFACE
@@ -250,6 +246,7 @@ interface DataContextType {
   workOrders: WorkOrder[];
   comments: WorkOrderComment[];
   notifications: Notification[];
+  sapMaintenanceItems: SAPMaintenanceItem[];
 
   addUser: (user: User) => void;
   updateUser: (user: User) => void;
@@ -272,6 +269,16 @@ interface DataContextType {
   markNotificationAsRead: (id: number) => void;
   markAllNotificationsAsRead: (userId: number) => void;
   getUnreadCount: (userId: number) => number;
+
+  // SAP Functions
+  addSAPMaintenanceItems: (items: SAPMaintenanceItem[]) => void;
+  clearSAPMaintenanceItems: () => void;
+  deleteSAPMaintenanceItem: (id: string) => void;
+  createWorkOrderFromSAP: (
+    sapItem: SAPMaintenanceItem,
+    currentUserId: number,
+    assignedTo?: number
+  ) => WorkOrder;
 
   resetAllData: () => void;
 }
@@ -303,6 +310,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     "maintaIn_notifications",
     INITIAL_NOTIFICATIONS
   );
+  const [sapMaintenanceItems, setSapMaintenanceItems] = useLocalStorage<
+    SAPMaintenanceItem[]
+  >("maintaIn_sapMaintenanceItems", INITIAL_SAP_DATA);
 
   // User Functions
   const addUser = (user: User) => setUsers([...users, user]);
@@ -361,6 +371,114 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const getUnreadCount = (userId: number): number =>
     notifications.filter((n) => n.userId === userId && !n.read).length;
 
+  // ==========================================
+  // SAP FUNCTIONS
+  // ==========================================
+
+  const addSAPMaintenanceItems = (items: SAPMaintenanceItem[]) => {
+    setSapMaintenanceItems(items);
+  };
+
+  const clearSAPMaintenanceItems = () => {
+    setSapMaintenanceItems([]);
+  };
+
+  const deleteSAPMaintenanceItem = (id: string) => {
+    setSapMaintenanceItems(
+      sapMaintenanceItems.filter((item) => item.id !== id)
+    );
+  };
+
+  const createWorkOrderFromSAP = (
+    sapItem: SAPMaintenanceItem,
+    currentUserId: number,
+    assignedTo?: number
+  ): WorkOrder => {
+    // Berechne nächste ID
+    const maxId =
+      workOrders.length > 0 ? Math.max(...workOrders.map((wo) => wo.id)) : 0;
+    const newId = maxId + 1;
+
+    // Finde Asset basierend auf SAP Asset Name
+    const asset = assets.find((a) => a.name === sapItem.asset);
+    const assetId = asset?.id || 1;
+    const assetName = sapItem.asset;
+
+    // Finde aktuellen User
+    const currentUser = users.find((u) => u.id === currentUserId);
+    if (!currentUser) {
+      throw new Error("Aktueller User nicht gefunden");
+    }
+
+    // Finde zugewiesenen User
+    const assignedUser = assignedTo
+      ? users.find((u) => u.id === assignedTo)
+      : undefined;
+
+    // Bestimme Priorität basierend auf Basic Start Date + 14 Tage
+    const getTargetDate = (basicStartDate: string): Date | null => {
+      if (!basicStartDate) return null;
+      const date = new Date(basicStartDate);
+      date.setDate(date.getDate() + 14);
+      return date;
+    };
+
+    const targetDate = getTargetDate(sapItem.basicStartDate);
+    const isOverdue = targetDate ? new Date() > targetDate : false;
+
+    // Priorität: Überfällig = Kritisch, sonst Normal
+    const priority = isOverdue ? "Kritisch" : "Normal";
+
+    // Bestimme Type basierend auf Work Center
+    const type =
+      sapItem.mainWorkCenter === "ELEC" ? "Elektrisch" : "Mechanisch";
+
+    // Bestimme Category basierend auf Order Type
+    const category =
+      sapItem.orderType === "PM02" ? "Im Betrieb" : "Einlagerung & Rig Moves";
+
+    const newWorkOrder: WorkOrder = {
+      id: newId,
+      title: sapItem.description,
+      description: `${sapItem.descriptionDetail}
+
+📋 SAP Information:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Order Nr.: ${sapItem.orderNumber}
+Order Type: ${sapItem.orderType}
+Work Center: ${sapItem.mainWorkCenter}
+Equipment: ${sapItem.equipment}
+Functional Location: ${sapItem.functionalLocation}
+Basic Start Date: ${sapItem.basicStartDate}
+System Status: ${sapItem.systemStatus}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+      assetId: assetId,
+      assetName: assetName,
+      type: type as any,
+      category: category as any,
+      priority: priority as any,
+      status: assignedTo ? "Zugewiesen" : "Neu",
+      createdBy: currentUser.id,
+      createdByName: currentUser.name,
+      assignedTo: assignedTo,
+      assignedToName: assignedUser?.name,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      materialRequired: false,
+      materialStatus: "Nicht benötigt",
+      // SAP-spezifische Felder
+      sapOrderNumber: sapItem.orderNumber,
+      sapBasicStartDate: sapItem.basicStartDate,
+      sapEquipment: sapItem.equipment,
+      sapFunctionalLocation: sapItem.functionalLocation,
+    };
+
+    // Work Order hinzufügen
+    addWorkOrder(newWorkOrder);
+
+    return newWorkOrder;
+  };
+
   // Reset
   const resetAllData = () => {
     setUsers(INITIAL_USERS);
@@ -368,6 +486,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setWorkOrders(INITIAL_WORKORDERS);
     setComments(INITIAL_COMMENTS);
     setNotifications(INITIAL_NOTIFICATIONS);
+    setSapMaintenanceItems(INITIAL_SAP_DATA);
   };
 
   const value: DataContextType = {
@@ -376,6 +495,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     workOrders,
     comments,
     notifications,
+    sapMaintenanceItems,
     addUser,
     updateUser,
     deleteUser,
@@ -393,6 +513,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     markNotificationAsRead,
     markAllNotificationsAsRead,
     getUnreadCount,
+    addSAPMaintenanceItems,
+    clearSAPMaintenanceItems,
+    deleteSAPMaintenanceItem,
+    createWorkOrderFromSAP,
     resetAllData,
   };
 
