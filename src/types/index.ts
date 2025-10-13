@@ -129,6 +129,9 @@ export interface WorkOrder {
   sapBasicStartDate?: string
   sapEquipment?: string
   sapFunctionalLocation?: string
+  // Tasks
+  tasks?: WorkOrderTask[]
+  
 }
 
 // ==========================================
@@ -182,4 +185,14 @@ export interface SAPMaintenanceItem {
   functionalLocation: string
   systemStatus: string
   asset: string // T207, T208, T700, T46
+}
+
+export interface WorkOrderTask {
+  id: number
+  description: string
+  completed: boolean
+  completedBy?: number
+  completedByName?: string
+  completedAt?: string
+  required: boolean
 }
