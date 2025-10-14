@@ -158,9 +158,6 @@ function CreateWorkOrderModal({
 
     // ========== NOTIFICATION: Assignment bei Erstellung ==========
     if (assignedTo && assignedTo !== currentUser.id) {
-      // Wir können hier noch keine ID haben, da der WO noch nicht erstellt wurde
-      // Daher müssen wir das in der Parent-Komponente machen
-      // Aber wir markieren es hier
       console.log(
         "🔔 WO wird mit Assignment erstellt - Notification sollte folgen"
       );

@@ -16,6 +16,10 @@ function Dashboard() {
   const { currentUser, logout } = useAuth();
   const { workOrders } = useData();
 
+  const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<number | null>(
+    null
+  );
+
   const visibleWorkOrders = currentUser
     ? workOrders.filter((wo) => canAccessAsset(currentUser, wo.assetId))
     : [];
@@ -30,10 +34,6 @@ function Dashboard() {
 
   const myAssignedWorkOrders = visibleWorkOrders.filter(
     (wo) => wo.assignedTo === currentUser?.id
-  );
-
-  const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<number | null>(
-    null
   );
 
   return (

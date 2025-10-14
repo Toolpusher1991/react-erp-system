@@ -20,6 +20,7 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
     users,
     addWorkOrder,
     updateWorkOrder,
+    deleteWorkOrder,
     addNotification,
     notifications,
     addComment,
@@ -118,6 +119,37 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
         newWO.assignedTo
       );
     }
+  };
+
+  // ========== LÖSCHEN FUNKTION ==========
+  const handleDeleteWorkOrder = () => {
+    if (!selectedWO || !currentUser) return;
+
+    // Nur Admin und Supervisors dürfen löschen
+    const canDelete =
+      currentUser.role === "Admin" ||
+      currentUser.role === "E-Supervisor" ||
+      currentUser.role === "M-Supervisor";
+
+    if (!canDelete) {
+      alert("⛔ Du hast keine Berechtigung Work Orders zu löschen!");
+      return;
+    }
+
+    // Bestätigung
+    if (
+      !window.confirm(
+        `⚠️ Work Order #${selectedWO.id} "${selectedWO.title}" wirklich unwiderruflich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden!`
+      )
+    ) {
+      return;
+    }
+
+    // Lösche Work Order
+    deleteWorkOrder(selectedWO.id);
+    setSelectedWO(null);
+
+    alert(`✅ Work Order #${selectedWO.id} wurde erfolgreich gelöscht!`);
   };
 
   // ========== FERTIGSTELLEN FUNKTION ==========
@@ -629,6 +661,12 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
               >
                 ✏️ Bearbeiten
               </button>
+
+              {/* ========== LÖSCHEN BUTTON ========== */}
+              <button className="btn-wo-delete" onClick={handleDeleteWorkOrder}>
+                🗑️ Löschen
+              </button>
+
               <button
                 className="btn-wo-close"
                 onClick={() => setSelectedWO(null)}
