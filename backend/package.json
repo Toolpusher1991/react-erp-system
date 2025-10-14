@@ -1,18 +1,26 @@
 {
-  "name": "backend",
+  "name": "maintain-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "MaintAIn Backend API",
+  "main": "dist/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.23",
+    "@types/node": "^20.19.21",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "prisma": "^6.17.1"
-  },
-  "dependencies": {
-    "@prisma/client": "^6.17.1"
-  }
+  "license": "ISC"
 }

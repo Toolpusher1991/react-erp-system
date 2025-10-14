@@ -1,28 +1,14 @@
-// ==========================================
-// AUTHENTICATION ROUTES
-// ==========================================
-
+// src/routes/auth.routes.ts
 import { Router } from 'express';
-import * as authController from '../controllers/auth.controller';
-import { authenticateToken, authorizeRoles } from '../middleware/auth.middleware';
+import { AuthController } from '../controllers/auth.controller';
 
 const router = Router();
+const authController = new AuthController();
 
-// Public routes
-router.post('/login', authController.login);
-router.post('/refresh', authController.refresh);
-router.post('/logout', authController.logout);
+// POST /api/auth/login
+router.post('/login', (req, res) => authController.login(req, res));
 
-// Protected routes
-router.get('/me', authenticateToken, authController.getCurrentUser);
-router.post('/change-password', authenticateToken, authController.changePassword);
-
-// Admin only - register new users
-router.post(
-  '/register',
-  authenticateToken,
-  authorizeRoles('ADMIN'),
-  authController.register
-);
+// GET /api/auth/me
+router.get('/me', (req, res) => authController.getCurrentUser(req, res));
 
 export default router;

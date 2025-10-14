@@ -19,15 +19,7 @@ function NotificationBell({ onOpenWorkOrder }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (currentUser) {
-      const myNotifications = getNotificationsForUser(currentUser.id);
-      const unread = getUnreadCount(currentUser.id);
-      console.log("🔔 NotificationBell for:", currentUser.name);
-      console.log("🔔 My notifications:", myNotifications.length);
-      console.log("🔔 Unread count:", unread);
-    }
-  }, [currentUser, notifications]);
+  useEffect(() => {}, [currentUser, notifications]);
 
   if (!currentUser) return null;
 
