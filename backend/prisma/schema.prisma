@@ -1,0 +1,323 @@
+// ==========================================
+// MAINTAION PRISMA SCHEMA - SQLite
+// ==========================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// USER MODEL
+// ==========================================
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  password  String
+  role      UserRole
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  createdWorkOrders     WorkOrder[]       @relation("CreatedBy")
+  assignedWorkOrders    WorkOrder[]       @relation("AssignedTo")
+  comments              Comment[]
+  notifications         Notification[]
+  refreshTokens         RefreshToken[]
+  completedTasks        Task[]
+  assignedAssets        UserAsset[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  E_SUPERVISOR
+  M_SUPERVISOR
+  MECHANIKER
+  ELEKTRIKER
+  RSC
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// ==========================================
+// ASSET MODEL
+// ==========================================
+
+model Asset {
+  id             Int         @id @default(autoincrement())
+  name           String
+  type           AssetType
+  status         AssetStatus @default(OPERATIONAL)
+  location       String
+  serialNumber   String?
+  notes          String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  // Relations
+  workOrders     WorkOrder[]
+  assignedUsers  UserAsset[]
+
+  @@map("assets")
+}
+
+enum AssetType {
+  BOHRANLAGE
+  MOTOR
+  PUMPE
+  BOHRTURM
+  GENERATOR
+  KOMPRESSOR
+  SONSTIGES
+}
+
+enum AssetStatus {
+  OPERATIONAL
+  MAINTENANCE
+  MALFUNCTION
+  SHUTDOWN
+}
+
+model UserAsset {
+  userId    Int
+  assetId   Int
+  assignedAt DateTime @default(now())
+
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset     Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([userId, assetId])
+  @@map("user_assets")
+}
+
+// ==========================================
+// WORK ORDER MODEL
+// ==========================================
+
+model WorkOrder {
+  id          Int              @id @default(autoincrement())
+  title       String
+  description String
+  type        WorkOrderType
+  category    WorkOrderCategory
+  priority    WorkOrderPriority @default(NORMAL)
+  status      WorkOrderStatus   @default(NEW)
+  
+  // Asset
+  assetId     Int
+  asset       Asset            @relation(fields: [assetId], references: [id])
+  
+  // Users
+  createdById Int
+  createdBy   User             @relation("CreatedBy", fields: [createdById], references: [id])
+  assignedToId Int?
+  assignedTo  User?            @relation("AssignedTo", fields: [assignedToId], references: [id])
+  
+  // Material
+  materialRequired     Boolean @default(false)
+  materialStatus       MaterialStatus @default(NOT_REQUIRED)
+  materialNumber       String?
+  materialDescription  String?
+  
+  // SAP Integration
+  sapOrderNumber       String?
+  sapBasicStartDate    String?
+  sapEquipment         String?
+  sapFunctionalLocation String?
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+  
+  // Relations
+  comments    Comment[]
+  notifications Notification[]
+  tasks       Task[]
+  images      WorkOrderImage[]
+
+  @@map("work_orders")
+}
+
+enum WorkOrderType {
+  MECHANISCH
+  ELEKTRISCH
+  HYDRAULISCH
+  SONSTIGES
+}
+
+enum WorkOrderCategory {
+  IM_BETRIEB
+  EINLAGERUNG_RIG_MOVES
+}
+
+enum WorkOrderPriority {
+  NIEDRIG
+  NORMAL
+  HOCH
+  KRITISCH
+}
+
+enum WorkOrderStatus {
+  NEW
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MaterialStatus {
+  NOT_REQUIRED
+  REQUIRED
+  ORDERED
+  DELIVERED
+}
+
+// ==========================================
+// TASK MODEL
+// ==========================================
+
+model Task {
+  id          Int      @id @default(autoincrement())
+  description String
+  completed   Boolean  @default(false)
+  required    Boolean  @default(true)
+  
+  workOrderId Int
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  
+  completedById   Int?
+  completedBy     User?    @relation(fields: [completedById], references: [id])
+  completedAt     DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("tasks")
+}
+
+// ==========================================
+// COMMENT MODEL
+// ==========================================
+
+model Comment {
+  id          Int         @id @default(autoincrement())
+  comment     String?
+  type        CommentType @default(COMMENT)
+  oldValue    String?
+  newValue    String?
+  
+  workOrderId Int
+  workOrder   WorkOrder   @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  
+  userId      Int
+  user        User        @relation(fields: [userId], references: [id])
+  
+  createdAt   DateTime    @default(now())
+
+  @@map("comments")
+}
+
+enum CommentType {
+  COMMENT
+  STATUS_CHANGE
+  ASSIGNMENT
+  PRIORITY_CHANGE
+}
+
+// ==========================================
+// NOTIFICATION MODEL
+// ==========================================
+
+model Notification {
+  id          Int              @id @default(autoincrement())
+  type        NotificationType
+  message     String
+  read        Boolean          @default(false)
+  
+  userId      Int
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  workOrderId Int
+  workOrder   WorkOrder        @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  
+  createdById Int
+  createdAt   DateTime         @default(now())
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  COMMENT
+  ASSIGNMENT
+  STATUS_CHANGE
+}
+
+// ==========================================
+// WORK ORDER IMAGE MODEL
+// ==========================================
+
+model WorkOrderImage {
+  id          Int       @id @default(autoincrement())
+  filename    String
+  path        String
+  mimetype    String
+  size        Int
+  
+  workOrderId Int
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  
+  uploadedAt  DateTime  @default(now())
+
+  @@map("work_order_images")
+}
+
+// ==========================================
+// SAP MAINTENANCE ITEM MODEL
+// ==========================================
+
+model SAPMaintenanceItem {
+  id                    String   @id @default(cuid())
+  orderType             String
+  mainWorkCenter        String
+  orderNumber           String   @unique
+  description           String
+  actualRelease         String?
+  basicStartDate        String
+  equipment             String
+  descriptionDetail     String
+  functionalLocation    String
+  systemStatus          String
+  asset                 String
+  
+  createdAt             DateTime @default(now())
+
+  @@map("sap_maintenance_items")
+}
+
+// ==========================================
+// REFRESH TOKEN MODEL (for JWT)
+// ==========================================
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
