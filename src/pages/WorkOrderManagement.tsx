@@ -1,9 +1,12 @@
+// src/pages/WorkOrderManagement.tsx
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
+import { useToast } from "../components/ToastContainer";
 import { canAccessAsset, filterAssetsForUser } from "../utils/permissions";
 import CreateWorkOrderModal from "../components/CreateWorkOrderModal";
 import EditWorkOrderModal from "../components/EditWorkOrderModal";
+import ConfirmationModal from "../components/ConfirmationModal";
 import CommentSection from "../components/CommentSection";
 import TaskList from "../components/TaskList";
 import type { WorkOrder, Asset, WorkOrderComment } from "../types";
@@ -27,6 +30,9 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
     comments,
   } = useData();
 
+  // Toast Hook
+  const { showToast } = useToast();
+
   // States
   const [selectedAssetId, setSelectedAssetId] = useState<number | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<
@@ -35,6 +41,15 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
   const [selectedWO, setSelectedWO] = useState<WorkOrder | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingWO, setEditingWO] = useState<WorkOrder | null>(null);
+
+  // Confirmation Modal States
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState({
+    title: "",
+    message: "",
+    type: "info" as "success" | "danger" | "warning" | "info",
+  });
 
   // Sichtbare Assets für den User
   const visibleAssets = currentUser
@@ -95,7 +110,10 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
 
     addWorkOrder(workOrderWithId);
 
-    // ========== NOTIFICATION: Assignment bei Erstellung ==========
+    // Toast statt Alert
+    showToast(`Work Order #${newId} erfolgreich erstellt!`, "success");
+
+    // Notification: Assignment bei Erstellung
     if (
       newWO.assignedTo &&
       currentUser &&
@@ -114,10 +132,6 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
         createdByName: currentUser.name,
       };
       addNotification(notification);
-      console.log(
-        "🔔 Assignment Notification bei WO-Erstellung für User:",
-        newWO.assignedTo
-      );
     }
   };
 
@@ -132,24 +146,72 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
       currentUser.role === "M-Supervisor";
 
     if (!canDelete) {
-      alert("⛔ Du hast keine Berechtigung Work Orders zu löschen!");
+      showToast("Du hast keine Berechtigung Work Orders zu löschen!", "error");
       return;
     }
 
-    // Bestätigung
-    if (
-      !window.confirm(
-        `⚠️ Work Order #${selectedWO.id} "${selectedWO.title}" wirklich unwiderruflich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden!`
-      )
-    ) {
-      return;
+    // Zeige Confirmation Modal
+    setConfirmMessage({
+      title: "Work Order wirklich löschen?",
+      message: `Work Order #${selectedWO.id} "${selectedWO.title}" wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden!`,
+      type: "danger",
+    });
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (!selectedWO || !currentUser) return;
+
+    // Supervisor Notification beim Löschen
+    const supervisorRole =
+      selectedWO.type === "Elektrisch" ? "E-Supervisor" : "M-Supervisor";
+    const supervisor = users.find((u) => u.role === supervisorRole);
+
+    if (supervisor && supervisor.id !== currentUser.id) {
+      const notification = {
+        id: Math.max(...notifications.map((n) => n.id), 0) + 1,
+        userId: supervisor.id,
+        type: "work_order_deleted" as const,
+        workOrderId: selectedWO.id,
+        workOrderTitle: selectedWO.title,
+        message: `🗑️ ${currentUser.name} hat Work Order #${selectedWO.id} "${selectedWO.title}" gelöscht.`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        createdBy: currentUser.id,
+        createdByName: currentUser.name,
+      };
+      addNotification(notification);
     }
+
+    // Benachrichtige auch den Creator
+    if (selectedWO.createdBy !== currentUser.id) {
+      const creator = users.find((u) => u.id === selectedWO.createdBy);
+      if (creator) {
+        const notification = {
+          id: Math.max(...notifications.map((n) => n.id), 0) + 1,
+          userId: selectedWO.createdBy,
+          type: "work_order_deleted" as const,
+          workOrderId: selectedWO.id,
+          workOrderTitle: selectedWO.title,
+          message: `🗑️ ${currentUser.name} hat deinen Work Order #${selectedWO.id} "${selectedWO.title}" gelöscht.`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          createdBy: currentUser.id,
+          createdByName: currentUser.name,
+        };
+        addNotification(notification);
+      }
+    }
+
+    const woId = selectedWO.id;
 
     // Lösche Work Order
     deleteWorkOrder(selectedWO.id);
     setSelectedWO(null);
+    setShowDeleteConfirm(false);
 
-    alert(`✅ Work Order #${selectedWO.id} wurde erfolgreich gelöscht!`);
+    // Toast statt Alert
+    showToast(`Work Order #${woId} wurde erfolgreich gelöscht!`, "success");
   };
 
   // ========== FERTIGSTELLEN FUNKTION ==========
@@ -163,24 +225,26 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
     // Validation: Prüfe ob alle Tasks erledigt sind
     if (hasTasks && !allTasksCompleted) {
       const openTasks = selectedWO.tasks!.filter((t) => !t.completed);
-      alert(
-        `⚠️ Noch ${
-          openTasks.length
-        } Aufgabe(n) offen!\n\nBitte alle Tasks abhaken bevor der Work Order fertiggestellt werden kann:\n\n${openTasks
-          .map((t) => `• ${t.description}`)
-          .join("\n")}`
+      showToast(
+        `Noch ${openTasks.length} Aufgabe(n) offen! Bitte alle Tasks abhaken.`,
+        "warning"
       );
       return;
     }
 
-    // Bestätigung
-    if (
-      !window.confirm(
-        `Work Order #${selectedWO.id} "${selectedWO.title}" als erledigt markieren?`
-      )
-    ) {
-      return;
-    }
+    // Zeige Confirmation Modal
+    setConfirmMessage({
+      title: "Work Order fertigstellen?",
+      message: `Work Order #${selectedWO.id} "${selectedWO.title}" wird als erledigt markiert und alle Aufgaben werden als abgeschlossen gekennzeichnet.`,
+      type: "success",
+    });
+    setShowCompleteConfirm(true);
+  };
+
+  const confirmComplete = () => {
+    if (!selectedWO || !currentUser) return;
+
+    const hasTasks = selectedWO.tasks && selectedWO.tasks.length > 0;
 
     // Update Status auf "Erledigt"
     const updatedWO: WorkOrder = {
@@ -205,7 +269,7 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
     };
     addComment(statusComment);
 
-    // ========== SUPERVISOR NOTIFICATION ==========
+    // Supervisor Notification
     const supervisorRole =
       selectedWO.type === "Elektrisch" ? "E-Supervisor" : "M-Supervisor";
     const supervisor = users.find((u) => u.role === supervisorRole);
@@ -230,10 +294,6 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
         createdByName: currentUser.name,
       };
       addNotification(notification);
-      console.log(
-        `🔔 Completion Notification an ${supervisorRole}:`,
-        supervisor.name
-      );
     }
 
     // Benachrichtige auch Creator wenn nicht der aktuelle User
@@ -253,12 +313,15 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
       addNotification(notification);
     }
 
+    const woId = selectedWO.id;
+
     // Speichern & Schließen
     updateWorkOrder(updatedWO);
     setSelectedWO(null);
+    setShowCompleteConfirm(false);
 
-    // Success Message
-    alert(`✅ Work Order #${selectedWO.id} erfolgreich fertiggestellt!`);
+    // Toast statt Alert
+    showToast(`Work Order #${woId} erfolgreich fertiggestellt!`, "success");
   };
 
   // Asset Icon
@@ -438,7 +501,14 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
                   <tr
                     key={wo.id}
                     onClick={() => setSelectedWO(wo)}
-                    className="wo-table-row"
+                    className={`wo-table-row ${
+                      wo.status === "Erledigt" ? "wo-row-completed" : ""
+                    }`}
+                    style={{
+                      textDecoration:
+                        wo.status === "Erledigt" ? "line-through" : "none",
+                      opacity: wo.status === "Erledigt" ? 0.6 : 1,
+                    }}
                   >
                     <td className="wo-id">#{wo.id}</td>
                     <td className="wo-type-icon">{getTypeIcon(wo.type)}</td>
@@ -458,6 +528,7 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
                       <span
                         className={`wo-status ${getStatusColor(wo.status)}`}
                       >
+                        {wo.status === "Erledigt" && "✓ "}
                         {wo.status}
                       </span>
                     </td>
@@ -528,58 +599,57 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
                   {selectedWO.status}
                 </span>
                 <span className="wo-category-badge">
-                  {selectedWO.category === "Im Betrieb" ? "🛢️" : "🚚"}{" "}
-                  {selectedWO.category}
+                  {selectedWO.category === "Im Betrieb"
+                    ? "🛢️ Im Betrieb"
+                    : "🚚 Einlagerung & Rig Moves"}
                 </span>
-                {selectedWO.materialRequired && (
-                  <span
-                    className={`material-status ${getMaterialStatusColor(
-                      selectedWO.materialStatus
-                    )}`}
-                  >
-                    📦 {selectedWO.materialStatus}
-                  </span>
-                )}
               </div>
 
               <div className="wo-detail-section">
-                <h3>Beschreibung</h3>
+                <h3>📝 Beschreibung</h3>
                 <p>{selectedWO.description}</p>
               </div>
 
               {selectedWO.materialRequired && (
                 <div className="wo-detail-section">
                   <h3>📦 Material-Informationen</h3>
-                  <div className="material-info">
-                    {selectedWO.materialNumber && (
-                      <p>
-                        <strong>Materialnummer:</strong>{" "}
-                        {selectedWO.materialNumber}
-                      </p>
-                    )}
-                    <p>
-                      <strong>Beschreibung:</strong>{" "}
-                      {selectedWO.materialDescription}
-                    </p>
-                    <p>
-                      <strong>Status:</strong> {selectedWO.materialStatus}
-                    </p>
+                  <div className="wo-detail-grid">
+                    <div className="wo-detail-item">
+                      <strong>Materialnummer</strong>
+                      <span>{selectedWO.materialNumber || "—"}</span>
+                    </div>
+                    <div className="wo-detail-item">
+                      <strong>Beschreibung</strong>
+                      <span>{selectedWO.materialDescription || "—"}</span>
+                    </div>
+                    <div className="wo-detail-item">
+                      <strong>Status</strong>
+                      <span
+                        className={`material-status ${getMaterialStatusColor(
+                          selectedWO.materialStatus
+                        )}`}
+                      >
+                        {selectedWO.materialStatus || "Nicht benötigt"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {selectedWO.images && selectedWO.images.length > 0 && (
+              {selectedWO.sapInformation && (
                 <div className="wo-detail-section">
-                  <h3>📷 Bilder ({selectedWO.images.length})</h3>
-                  <div className="wo-images-grid">
-                    {selectedWO.images.map((img, index) => (
-                      <div key={index} className="wo-image-item">
-                        <img
-                          src={img}
-                          alt={`Work Order Bild ${index + 1}`}
-                          onClick={() => window.open(img, "_blank")}
-                        />
-                      </div>
+                  <h3>🗂️ SAP Information</h3>
+                  <div
+                    style={{
+                      background: "#f9fafb",
+                      padding: "1rem",
+                      borderRadius: "8px",
+                      fontFamily: "monospace",
+                      fontSize: "0.875rem",
+                    }}
+                  >
+                    {selectedWO.sapInformation.split("\n").map((line, i) => (
+                      <div key={i}>{line}</div>
                     ))}
                   </div>
                 </div>
@@ -662,7 +732,6 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
                 ✏️ Bearbeiten
               </button>
 
-              {/* ========== LÖSCHEN BUTTON ========== */}
               <button className="btn-wo-delete" onClick={handleDeleteWorkOrder}>
                 🗑️ Löschen
               </button>
@@ -693,6 +762,31 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
           users={users}
           onClose={() => setEditingWO(null)}
           onUpdateWorkOrder={updateWorkOrder}
+        />
+      )}
+
+      {/* ========== CONFIRMATION MODALS ========== */}
+      {showCompleteConfirm && (
+        <ConfirmationModal
+          title={confirmMessage.title}
+          message={confirmMessage.message}
+          type={confirmMessage.type}
+          confirmText="Ja, fertigstellen"
+          cancelText="Abbrechen"
+          onConfirm={confirmComplete}
+          onCancel={() => setShowCompleteConfirm(false)}
+        />
+      )}
+
+      {showDeleteConfirm && (
+        <ConfirmationModal
+          title={confirmMessage.title}
+          message={confirmMessage.message}
+          type={confirmMessage.type}
+          confirmText="Ja, löschen"
+          cancelText="Abbrechen"
+          onConfirm={confirmDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
         />
       )}
     </div>

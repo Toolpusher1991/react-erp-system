@@ -1,0 +1,1043 @@
+// src/pages/ProjectManagement.tsx
+
+import { useState, useEffect } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import { useData } from "../contexts/DataContext";
+import { filterAssetsForUser } from "../utils/permissions";
+import type { Project } from "../types";
+
+function ProjectManagement() {
+  const { currentUser } = useAuth();
+  const { projects, assets, updateProject } = useData();
+  const [selectedAssetId, setSelectedAssetId] = useState<number | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+
+  // Sichtbare Assets für den User
+  const visibleAssets = currentUser
+    ? filterAssetsForUser(currentUser, assets)
+    : [];
+
+  // Setze erste Anlage als Standard
+  useEffect(() => {
+    if (selectedAssetId === null && visibleAssets.length > 0) {
+      setSelectedAssetId(visibleAssets[0].id);
+    }
+  }, [visibleAssets, selectedAssetId]);
+
+  // Filtere Projekte für ausgewählte Anlage
+  const assetProjects = selectedAssetId
+    ? projects.filter((p) => p.assetId === selectedAssetId)
+    : [];
+
+  // Statistiken
+  const stats = {
+    total: assetProjects.length,
+    active: assetProjects.filter((p) => p.status === "In Arbeit").length,
+    planned: assetProjects.filter((p) => p.status === "Geplant").length,
+    completed: assetProjects.filter((p) => p.status === "Abgeschlossen").length,
+    totalBudget: assetProjects.reduce((sum, p) => sum + p.budget, 0),
+    totalSpent: assetProjects.reduce((sum, p) => sum + p.spent, 0),
+  };
+
+  const getStatusColor = (status: Project["status"]) => {
+    switch (status) {
+      case "Geplant":
+        return "#3b82f6";
+      case "In Arbeit":
+        return "#f59e0b";
+      case "Abgeschlossen":
+        return "#10b981";
+      case "Verzögert":
+        return "#ef4444";
+      case "On Hold":
+        return "#6b7280";
+      default:
+        return "#9ca3af";
+    }
+  };
+
+  const getPriorityColor = (priority: Project["priority"]) => {
+    switch (priority) {
+      case "Kritisch":
+        return "#ef4444";
+      case "Hoch":
+        return "#f59e0b";
+      case "Normal":
+        return "#3b82f6";
+      case "Niedrig":
+        return "#6b7280";
+      default:
+        return "#9ca3af";
+    }
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("de-DE", {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  const handleEdit = () => {
+    if (!selectedProject) return;
+    setEditingProject({ ...selectedProject });
+    setShowEditModal(true);
+    setSelectedProject(null);
+  };
+
+  const handleSave = () => {
+    if (!editingProject) return;
+    const updatedProject: Project = {
+      ...editingProject,
+      updatedAt: new Date().toISOString(),
+    };
+    updateProject(updatedProject);
+    setShowEditModal(false);
+    setEditingProject(null);
+  };
+
+  return (
+    <div className="container">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "2rem",
+        }}
+      >
+        <h1 style={{ margin: 0 }}>🏗️ Projekt Management</h1>
+        <button
+          className="btn-create-wo"
+          style={{
+            background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+            padding: "1rem 2rem",
+          }}
+        >
+          + Neues Projekt
+        </button>
+      </div>
+
+      {/* ASSET TABS */}
+      <div className="asset-tabs">
+        {visibleAssets.map((asset) => {
+          const assetProjectCount = projects.filter(
+            (p) => p.assetId === asset.id
+          ).length;
+          return (
+            <button
+              key={asset.id}
+              className={`asset-tab ${
+                selectedAssetId === asset.id ? "active" : ""
+              }`}
+              onClick={() => setSelectedAssetId(asset.id)}
+            >
+              <span className="asset-tab-icon">🛢️</span>
+              <span className="asset-tab-name">{asset.name}</span>
+              <span className="asset-tab-count">{assetProjectCount}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* STATISTICS */}
+      <div className="wo-stats">
+        <div className="stat-card">
+          <h3>Projekte Gesamt</h3>
+          <p className="stat-number">{stats.total}</p>
+        </div>
+        <div className="stat-card" style={{ borderLeft: "4px solid #f59e0b" }}>
+          <h3>In Arbeit</h3>
+          <p className="stat-number">{stats.active}</p>
+        </div>
+        <div className="stat-card" style={{ borderLeft: "4px solid #3b82f6" }}>
+          <h3>Geplant</h3>
+          <p className="stat-number">{stats.planned}</p>
+        </div>
+        <div className="stat-card" style={{ borderLeft: "4px solid #10b981" }}>
+          <h3>Abgeschlossen</h3>
+          <p className="stat-number">{stats.completed}</p>
+        </div>
+        <div
+          className="stat-card"
+          style={{
+            background: "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+            color: "white",
+            gridColumn: "span 2",
+          }}
+        >
+          <h3 style={{ color: "rgba(255,255,255,0.9)" }}>
+            💰 Budget Übersicht
+          </h3>
+          <div style={{ display: "flex", gap: "2rem", alignItems: "baseline" }}>
+            <div>
+              <p
+                className="stat-number"
+                style={{ fontSize: "1.5rem", color: "white" }}
+              >
+                {formatCurrency(stats.totalBudget)}
+              </p>
+              <span style={{ opacity: 0.8, fontSize: "0.875rem" }}>
+                Gesamt Budget
+              </span>
+            </div>
+            <div>
+              <p
+                className="stat-number"
+                style={{ fontSize: "1.5rem", color: "white" }}
+              >
+                {formatCurrency(stats.totalSpent)}
+              </p>
+              <span style={{ opacity: 0.8, fontSize: "0.875rem" }}>
+                Ausgegeben
+              </span>
+            </div>
+            <div>
+              <p
+                className="stat-number"
+                style={{ fontSize: "1.5rem", color: "white" }}
+              >
+                {stats.totalBudget > 0
+                  ? Math.round((stats.totalSpent / stats.totalBudget) * 100)
+                  : 0}
+                %
+              </p>
+              <span style={{ opacity: 0.8, fontSize: "0.875rem" }}>
+                Verbraucht
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* PROJECT TABLE */}
+      <div className="wo-table-container">
+        <table className="wo-table">
+          <thead>
+            <tr>
+              <th>Projekt</th>
+              <th>Status</th>
+              <th>Fortschritt</th>
+              <th>Priorität</th>
+              <th>Budget</th>
+              <th>Zeitraum</th>
+              <th>Manager</th>
+            </tr>
+          </thead>
+          <tbody>
+            {assetProjects.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="wo-empty">
+                  <p>Keine Projekte für diese Anlage vorhanden</p>
+                </td>
+              </tr>
+            ) : (
+              assetProjects.map((project) => (
+                <tr
+                  key={project.id}
+                  onClick={() => setSelectedProject(project)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <td>
+                    <div style={{ fontWeight: "700", marginBottom: "0.25rem" }}>
+                      {project.projectName}
+                    </div>
+                    <div style={{ fontSize: "0.8125rem", color: "#6b7280" }}>
+                      #{project.id}
+                    </div>
+                  </td>
+                  <td>
+                    <span
+                      className="wo-status"
+                      style={{
+                        background: `${getStatusColor(project.status)}15`,
+                        color: getStatusColor(project.status),
+                      }}
+                    >
+                      {project.status}
+                    </span>
+                  </td>
+                  <td>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          flex: 1,
+                          height: "8px",
+                          background: "#e5e7eb",
+                          borderRadius: "999px",
+                          overflow: "hidden",
+                          maxWidth: "120px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: "100%",
+                            width: `${project.progress}%`,
+                            background: getStatusColor(project.status),
+                            borderRadius: "999px",
+                          }}
+                        />
+                      </div>
+                      <span
+                        style={{
+                          fontSize: "0.875rem",
+                          fontWeight: "700",
+                          minWidth: "45px",
+                        }}
+                      >
+                        {project.progress}%
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <span
+                      className="wo-priority"
+                      style={{
+                        background: `${getPriorityColor(project.priority)}15`,
+                        color: getPriorityColor(project.priority),
+                      }}
+                    >
+                      {project.priority}
+                    </span>
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: "700", marginBottom: "0.25rem" }}>
+                      {formatCurrency(project.budget)}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+                      {formatCurrency(project.spent)} ausgegeben
+                    </div>
+                  </td>
+                  <td style={{ fontSize: "0.875rem", fontWeight: "500" }}>
+                    {new Date(project.startDate).toLocaleDateString("de-DE", {
+                      day: "2-digit",
+                      month: "short",
+                    })}{" "}
+                    -{" "}
+                    {new Date(project.endDate).toLocaleDateString("de-DE", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </td>
+                  <td style={{ fontSize: "0.875rem", fontWeight: "600" }}>
+                    {project.manager}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* PROJECT DETAIL MODAL */}
+      {selectedProject && (
+        <>
+          <div
+            className="wo-modal-overlay"
+            onClick={() => setSelectedProject(null)}
+          />
+          <div className="wo-detail-modal" style={{ maxWidth: "1100px" }}>
+            <div
+              className="wo-detail-header"
+              style={{
+                background: `linear-gradient(135deg, ${getStatusColor(
+                  selectedProject.status
+                )}, ${getStatusColor(selectedProject.status)}dd)`,
+                color: "white",
+                padding: "2.5rem",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "start",
+                  marginBottom: "1.5rem",
+                }}
+              >
+                <div>
+                  <h2 style={{ margin: "0 0 0.5rem 0", fontSize: "2rem" }}>
+                    {selectedProject.projectName}
+                  </h2>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "1rem",
+                      alignItems: "center",
+                    }}
+                  >
+                    <span
+                      style={{
+                        background: "rgba(255,255,255,0.25)",
+                        padding: "0.5rem 1rem",
+                        borderRadius: "12px",
+                        fontSize: "0.875rem",
+                        fontWeight: "700",
+                      }}
+                    >
+                      {selectedProject.status}
+                    </span>
+                    <span
+                      style={{
+                        background: "rgba(255,255,255,0.25)",
+                        padding: "0.5rem 1rem",
+                        borderRadius: "12px",
+                        fontSize: "0.875rem",
+                        fontWeight: "700",
+                      }}
+                    >
+                      Priorität: {selectedProject.priority}
+                    </span>
+                    <span style={{ fontSize: "0.875rem", opacity: 0.9 }}>
+                      Projekt #{selectedProject.id} •{" "}
+                      {selectedProject.assetName}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedProject(null)}
+                  className="btn-close-modal"
+                  style={{
+                    background: "rgba(255,255,255,0.25)",
+                    color: "white",
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Progress Bar */}
+              <div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  <span style={{ fontSize: "1rem", fontWeight: "700" }}>
+                    Projekt-Fortschritt
+                  </span>
+                  <span style={{ fontSize: "1.25rem", fontWeight: "800" }}>
+                    {selectedProject.progress}%
+                  </span>
+                </div>
+                <div
+                  style={{
+                    background: "rgba(255,255,255,0.25)",
+                    height: "16px",
+                    borderRadius: "999px",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      background: "white",
+                      height: "100%",
+                      width: `${selectedProject.progress}%`,
+                      borderRadius: "999px",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="wo-detail-body" style={{ padding: "2.5rem" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "2fr 1fr",
+                  gap: "2rem",
+                }}
+              >
+                {/* Left Column */}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "1.5rem",
+                  }}
+                >
+                  <div className="wo-detail-section">
+                    <h3>📋 Beschreibung</h3>
+                    <p>{selectedProject.description}</p>
+                  </div>
+
+                  <div className="wo-detail-section">
+                    <h3>🎯 Projektziele</h3>
+                    <p>{selectedProject.objectives}</p>
+                  </div>
+
+                  <div className="wo-detail-section">
+                    <h3>🔧 Umfang</h3>
+                    <p>{selectedProject.scope}</p>
+                  </div>
+
+                  {selectedProject.risks && (
+                    <div
+                      style={{
+                        padding: "1.5rem",
+                        background: "#fef3c7",
+                        borderRadius: "12px",
+                        borderLeft: "4px solid #f59e0b",
+                      }}
+                    >
+                      <h3
+                        style={{
+                          margin: "0 0 0.75rem 0",
+                          fontSize: "1rem",
+                          fontWeight: "800",
+                          color: "#92400e",
+                        }}
+                      >
+                        ⚠️ Risiken
+                      </h3>
+                      <p
+                        style={{
+                          margin: 0,
+                          color: "#78350f",
+                          lineHeight: "1.7",
+                        }}
+                      >
+                        {selectedProject.risks}
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedProject.notes && (
+                    <div
+                      style={{
+                        padding: "1.5rem",
+                        background: "#f9fafb",
+                        borderRadius: "12px",
+                        border: "1px solid #e5e7eb",
+                      }}
+                    >
+                      <h3
+                        style={{
+                          margin: "0 0 0.75rem 0",
+                          fontSize: "1rem",
+                          fontWeight: "800",
+                        }}
+                      >
+                        📝 Notizen
+                      </h3>
+                      <p
+                        style={{
+                          margin: 0,
+                          lineHeight: "1.7",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        {selectedProject.notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column */}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "1.5rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "1.5rem",
+                      background: "#f9fafb",
+                      borderRadius: "16px",
+                      border: "1px solid #e5e7eb",
+                    }}
+                  >
+                    <h3
+                      style={{
+                        margin: "0 0 1.5rem 0",
+                        fontSize: "1.125rem",
+                        fontWeight: "800",
+                      }}
+                    >
+                      📅 Zeitplan
+                    </h3>
+                    <div style={{ marginBottom: "1rem" }}>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#6b7280",
+                          fontWeight: "700",
+                          textTransform: "uppercase",
+                          marginBottom: "0.5rem",
+                        }}
+                      >
+                        Start
+                      </div>
+                      <div style={{ fontSize: "1.125rem", fontWeight: "700" }}>
+                        {new Date(selectedProject.startDate).toLocaleDateString(
+                          "de-DE"
+                        )}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        borderTop: "1px solid #e5e7eb",
+                        paddingTop: "1rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#6b7280",
+                          fontWeight: "700",
+                          textTransform: "uppercase",
+                          marginBottom: "0.5rem",
+                        }}
+                      >
+                        Geplantes Ende
+                      </div>
+                      <div style={{ fontSize: "1.125rem", fontWeight: "700" }}>
+                        {new Date(selectedProject.endDate).toLocaleDateString(
+                          "de-DE"
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+                      padding: "1.5rem",
+                      borderRadius: "16px",
+                      boxShadow: "0 4px 12px rgba(139, 92, 246, 0.3)",
+                      color: "white",
+                    }}
+                  >
+                    <h3
+                      style={{
+                        margin: "0 0 1.5rem 0",
+                        fontSize: "1.125rem",
+                        fontWeight: "800",
+                      }}
+                    >
+                      💰 Budget
+                    </h3>
+                    <div style={{ marginBottom: "1rem" }}>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          opacity: 0.9,
+                          fontWeight: "700",
+                          marginBottom: "0.5rem",
+                        }}
+                      >
+                        Gesamt Budget
+                      </div>
+                      <div style={{ fontSize: "1.75rem", fontWeight: "800" }}>
+                        {formatCurrency(selectedProject.budget)}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        borderTop: "1px solid rgba(255,255,255,0.2)",
+                        paddingTop: "1rem",
+                        marginBottom: "1rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          opacity: 0.9,
+                          fontWeight: "700",
+                          marginBottom: "0.5rem",
+                        }}
+                      >
+                        Ausgegeben
+                      </div>
+                      <div style={{ fontSize: "1.5rem", fontWeight: "800" }}>
+                        {formatCurrency(selectedProject.spent)}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        background: "rgba(255,255,255,0.15)",
+                        height: "12px",
+                        borderRadius: "999px",
+                        overflow: "hidden",
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          background: "white",
+                          height: "100%",
+                          width: `${Math.min(
+                            (selectedProject.spent / selectedProject.budget) *
+                              100,
+                            100
+                          )}%`,
+                          borderRadius: "999px",
+                        }}
+                      />
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.875rem",
+                        opacity: 0.9,
+                        textAlign: "right",
+                        marginBottom: "1rem",
+                      }}
+                    >
+                      {Math.round(
+                        (selectedProject.spent / selectedProject.budget) * 100
+                      )}
+                      % verbraucht
+                    </div>
+                    <div
+                      style={{
+                        borderTop: "1px solid rgba(255,255,255,0.2)",
+                        paddingTop: "1rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          opacity: 0.9,
+                          fontWeight: "700",
+                          marginBottom: "0.5rem",
+                        }}
+                      >
+                        Verfügbar
+                      </div>
+                      <div style={{ fontSize: "1.5rem", fontWeight: "800" }}>
+                        {formatCurrency(
+                          Math.max(
+                            selectedProject.budget - selectedProject.spent,
+                            0
+                          )
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: "1.5rem",
+                      background: "#f9fafb",
+                      borderRadius: "16px",
+                      border: "1px solid #e5e7eb",
+                    }}
+                  >
+                    <h3
+                      style={{
+                        margin: "0 0 1rem 0",
+                        fontSize: "1.125rem",
+                        fontWeight: "800",
+                      }}
+                    >
+                      👨‍💼 Projektleiter
+                    </h3>
+                    <div
+                      style={{
+                        padding: "1rem",
+                        background: "white",
+                        borderRadius: "12px",
+                        fontSize: "1rem",
+                        fontWeight: "700",
+                        border: "2px solid #e5e7eb",
+                      }}
+                    >
+                      {selectedProject.manager}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="wo-detail-footer">
+              <button onClick={handleEdit} className="btn-wo-edit">
+                ✏️ Bearbeiten
+              </button>
+              <button
+                onClick={() => setSelectedProject(null)}
+                className="btn-wo-close"
+              >
+                Schließen
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* EDIT MODAL */}
+      {showEditModal && editingProject && (
+        <>
+          <div
+            className="wo-modal-overlay"
+            onClick={() => setShowEditModal(false)}
+            style={{ zIndex: 1001 }}
+          />
+          <div
+            className="wo-edit-modal"
+            style={{ zIndex: 1002, maxWidth: "800px" }}
+          >
+            <div className="wo-edit-header">
+              <div>
+                <h2>✏️ Projekt bearbeiten</h2>
+                <span className="wo-detail-id">
+                  {editingProject.assetName} - {editingProject.projectName}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="btn-close-modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="wo-edit-body">
+              <div className="form-group">
+                <label>Projektname</label>
+                <input
+                  type="text"
+                  value={editingProject.projectName}
+                  onChange={(e) =>
+                    setEditingProject({
+                      ...editingProject,
+                      projectName: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Status</label>
+                  <select
+                    value={editingProject.status}
+                    onChange={(e) =>
+                      setEditingProject({
+                        ...editingProject,
+                        status: e.target.value as any,
+                      })
+                    }
+                  >
+                    <option value="Geplant">Geplant</option>
+                    <option value="In Arbeit">In Arbeit</option>
+                    <option value="Verzögert">Verzögert</option>
+                    <option value="On Hold">On Hold</option>
+                    <option value="Abgeschlossen">Abgeschlossen</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Priorität</label>
+                  <select
+                    value={editingProject.priority}
+                    onChange={(e) =>
+                      setEditingProject({
+                        ...editingProject,
+                        priority: e.target.value as any,
+                      })
+                    }
+                  >
+                    <option value="Niedrig">Niedrig</option>
+                    <option value="Normal">Normal</option>
+                    <option value="Hoch">Hoch</option>
+                    <option value="Kritisch">Kritisch</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Fortschritt (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editingProject.progress}
+                  onChange={(e) =>
+                    setEditingProject({
+                      ...editingProject,
+                      progress: Number(e.target.value),
+                    })
+                  }
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Beschreibung</label>
+                <textarea
+                  value={editingProject.description}
+                  onChange={(e) =>
+                    setEditingProject({
+                      ...editingProject,
+                      description: e.target.value,
+                    })
+                  }
+                  rows={3}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Projektziele</label>
+                <textarea
+                  value={editingProject.objectives}
+                  onChange={(e) =>
+                    setEditingProject({
+                      ...editingProject,
+                      objectives: e.target.value,
+                    })
+                  }
+                  rows={2}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Umfang</label>
+                <textarea
+                  value={editingProject.scope}
+                  onChange={(e) =>
+                    setEditingProject({
+                      ...editingProject,
+                      scope: e.target.value,
+                    })
+                  }
+                  rows={2}
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Start-Datum</label>
+                  <input
+                    type="date"
+                    value={editingProject.startDate}
+                    onChange={(e) =>
+                      setEditingProject({
+                        ...editingProject,
+                        startDate: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>End-Datum</label>
+                  <input
+                    type="date"
+                    value={editingProject.endDate}
+                    onChange={(e) =>
+                      setEditingProject({
+                        ...editingProject,
+                        endDate: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Budget (EUR)</label>
+                  <input
+                    type="number"
+                    value={editingProject.budget}
+                    onChange={(e) =>
+                      setEditingProject({
+                        ...editingProject,
+                        budget: Number(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Ausgegeben (EUR)</label>
+                  <input
+                    type="number"
+                    value={editingProject.spent}
+                    onChange={(e) =>
+                      setEditingProject({
+                        ...editingProject,
+                        spent: Number(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Projektleiter</label>
+                <input
+                  type="text"
+                  value={editingProject.manager}
+                  onChange={(e) =>
+                    setEditingProject({
+                      ...editingProject,
+                      manager: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Risiken</label>
+                <textarea
+                  value={editingProject.risks || ""}
+                  onChange={(e) =>
+                    setEditingProject({
+                      ...editingProject,
+                      risks: e.target.value,
+                    })
+                  }
+                  rows={2}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Notizen</label>
+                <textarea
+                  value={editingProject.notes || ""}
+                  onChange={(e) =>
+                    setEditingProject({
+                      ...editingProject,
+                      notes: e.target.value,
+                    })
+                  }
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="wo-edit-footer">
+              <button onClick={handleSave} className="btn-edit-save">
+                💾 Speichern
+              </button>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="btn-edit-cancel"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default ProjectManagement;

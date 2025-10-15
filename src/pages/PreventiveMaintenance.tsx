@@ -11,6 +11,7 @@ function PreventiveMaintenance() {
     sapMaintenanceItems,
     addSAPMaintenanceItems,
     deleteSAPMaintenanceItem,
+    deleteAllSAPMaintenanceItems,
     createWorkOrderFromSAP,
     users,
   } = useData();
@@ -218,6 +219,35 @@ function PreventiveMaintenance() {
     }
   };
 
+  const handleDeleteAllSAPItems = () => {
+    if (!canDeleteSAPItems) {
+      alert("❌ Keine Berechtigung zum Löschen");
+      return;
+    }
+
+    const count = sapMaintenanceItems.length;
+    if (count === 0) {
+      alert("ℹ️ Keine SAP-Einträge vorhanden");
+      return;
+    }
+
+    if (
+      window.confirm(
+        `⚠️ ACHTUNG: Möchten Sie wirklich ALLE ${count} SAP-Einträge löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden!`
+      )
+    ) {
+      // Doppelte Bestätigung für zusätzliche Sicherheit
+      if (
+        window.confirm(
+          `Sind Sie absolut sicher? Es werden ${count} Einträge unwiderruflich gelöscht.`
+        )
+      ) {
+        deleteAllSAPMaintenanceItems();
+        alert(`✅ Alle ${count} SAP-Einträge wurden gelöscht`);
+      }
+    }
+  };
+
   const handleCreateWorkOrder = (item: SAPMaintenanceItem) => {
     setSelectedItem(item);
     setShowCreateWO(true);
@@ -260,15 +290,68 @@ function PreventiveMaintenance() {
             Maintenance | ELEC = Elektriker | MECH = Mechaniker
           </p>
         </div>
-        <label className="pm-upload-btn">
-          📂 SAP Excel importieren
-          <input
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleFileUpload}
-            style={{ display: "none" }}
-          />
-        </label>
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+          <label className="pm-upload-btn">
+            📂 SAP Excel importieren
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileUpload}
+              style={{ display: "none" }}
+            />
+          </label>
+          {/* DEBUG: Button ist jetzt immer sichtbar */}
+          <button
+            onClick={handleDeleteAllSAPItems}
+            disabled={!canDeleteSAPItems || sapMaintenanceItems.length === 0}
+            style={{
+              padding: "0.75rem 1.25rem",
+              background:
+                !canDeleteSAPItems || sapMaintenanceItems.length === 0
+                  ? "#e5e7eb"
+                  : "rgba(239, 68, 68, 0.1)",
+              color:
+                !canDeleteSAPItems || sapMaintenanceItems.length === 0
+                  ? "#9ca3af"
+                  : "#ef4444",
+              border: "2px solid rgba(239, 68, 68, 0.3)",
+              borderRadius: "10px",
+              fontSize: "0.9375rem",
+              fontWeight: "700",
+              cursor:
+                !canDeleteSAPItems || sapMaintenanceItems.length === 0
+                  ? "not-allowed"
+                  : "pointer",
+              transition: "all 0.2s",
+              whiteSpace: "nowrap",
+              opacity:
+                !canDeleteSAPItems || sapMaintenanceItems.length === 0
+                  ? 0.5
+                  : 1,
+            }}
+            onMouseEnter={(e) => {
+              if (canDeleteSAPItems && sapMaintenanceItems.length > 0) {
+                e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)";
+                e.currentTarget.style.borderColor = "#ef4444";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (canDeleteSAPItems && sapMaintenanceItems.length > 0) {
+                e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.3)";
+              }
+            }}
+            title={
+              !canDeleteSAPItems
+                ? "Keine Berechtigung (nur Supervisors & Admin)"
+                : sapMaintenanceItems.length === 0
+                ? "Keine Einträge zum Löschen"
+                : "Alle SAP-Einträge löschen"
+            }
+          >
+            🗑️ Alle löschen ({sapMaintenanceItems.length})
+          </button>
+        </div>
       </div>
 
       {loading && (

@@ -1,3 +1,5 @@
+// src/pages/Dashboard.tsx
+
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
@@ -6,19 +8,16 @@ import UserManagement from "./UserManagement";
 import AssetManagement from "./AssetManagement";
 import WorkOrderManagement from "./WorkOrderManagement";
 import PreventiveMaintenance from "./PreventiveMaintenance";
+import ProjectManagement from "./ProjectManagement";
 import NotificationBell from "../components/NotificationBell";
 
 function Dashboard() {
   const [currentPage, setCurrentPage] = useState<
-    "users" | "assets" | "workorders" | "sappm"
+    "users" | "assets" | "workorders" | "sappm" | "projects"
   >("workorders");
 
   const { currentUser, logout } = useAuth();
   const { workOrders } = useData();
-
-  const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<number | null>(
-    null
-  );
 
   const visibleWorkOrders = currentUser
     ? workOrders.filter((wo) => canAccessAsset(currentUser, wo.assetId))
@@ -34,6 +33,10 @@ function Dashboard() {
 
   const myAssignedWorkOrders = visibleWorkOrders.filter(
     (wo) => wo.assignedTo === currentUser?.id
+  );
+
+  const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<number | null>(
+    null
   );
 
   return (
@@ -96,11 +99,19 @@ function Dashboard() {
 
       {/* Navigation */}
       <nav className="dashboard-nav">
+        {currentUser?.role === "Admin" && (
+          <button
+            className={currentPage === "users" ? "nav-btn active" : "nav-btn"}
+            onClick={() => setCurrentPage("users")}
+          >
+            👥 Benutzerverwaltung
+          </button>
+        )}
         <button
-          className={currentPage === "users" ? "nav-btn active" : "nav-btn"}
-          onClick={() => setCurrentPage("users")}
+          className={currentPage === "projects" ? "nav-btn active" : "nav-btn"}
+          onClick={() => setCurrentPage("projects")}
         >
-          👥 Benutzerverwaltung
+          🏗️ Projekte
         </button>
         <button
           className={currentPage === "assets" ? "nav-btn active" : "nav-btn"}
@@ -126,6 +137,7 @@ function Dashboard() {
 
       {/* Content */}
       {currentPage === "users" && <UserManagement />}
+      {currentPage === "projects" && <ProjectManagement />}
       {currentPage === "assets" && <AssetManagement />}
       {currentPage === "workorders" && (
         <WorkOrderManagement initialSelectedId={selectedWorkOrderId} />

@@ -158,7 +158,7 @@ export interface WorkOrderComment {
 export interface Notification {
   id: number
   userId: number
-  type: 'comment' | 'assignment' | 'status_change'
+  type: 'comment' | 'assignment' | 'status_change' | 'work_order_deleted';
   workOrderId: number
   workOrderTitle: string
   message: string
@@ -196,3 +196,41 @@ export interface WorkOrderTask {
   completedAt?: string
   required: boolean
 }
+
+// Füge diese Types zu src/types/index.ts hinzu:
+
+export type ProjectStatus = 
+  | 'Geplant'
+  | 'In Arbeit'
+  | 'Pausiert'
+  | 'Abgeschlossen'
+
+export type ProjectPriority = 
+  | 'Niedrig'
+  | 'Normal'
+  | 'Hoch'
+  | 'Kritisch'
+
+export interface Project {
+  id: number
+  assetId: number
+  assetName: string
+  projectName: string
+  status: ProjectStatus
+  progress: number
+  budget: number
+  spent: number
+  startDate: string
+  endDate: string
+  priority: ProjectPriority
+  manager: string
+  description: string
+  objectives: string
+  scope: string
+  notes: string
+  risks: string
+  createdAt: string
+  updatedAt: string
+}
+
+

@@ -1,5 +1,5 @@
 // ==========================================
-// DATA CONTEXT - VOLLSTÄNDIG MIT SAP & NOTIFICATIONS
+// DATA CONTEXT - VOLLSTÄNDIG MIT PROJECT MANAGEMENT
 // ==========================================
 
 import { createContext, useContext, type ReactNode } from "react";
@@ -11,6 +11,7 @@ import type {
   WorkOrderComment,
   Notification,
   SAPMaintenanceItem,
+  Project,
 } from "../types";
 
 // ==========================================
@@ -235,6 +236,167 @@ const INITIAL_WORKORDERS: WorkOrder[] = [
 const INITIAL_COMMENTS: WorkOrderComment[] = [];
 const INITIAL_NOTIFICATIONS: Notification[] = [];
 const INITIAL_SAP_DATA: SAPMaintenanceItem[] = [];
+const INITIAL_PROJECTS: Project[] = [
+  {
+    id: 1,
+    assetId: 1,
+    assetName: "T207",
+    projectName: "T207 Komplett-Überholung 2025",
+    status: "In Arbeit",
+    progress: 65,
+    budget: 125000,
+    spent: 81250,
+    startDate: "2025-09-01",
+    endDate: "2025-11-30",
+    priority: "Hoch",
+    manager: "Anna E-Super",
+    description:
+      "Komplette Wartung und Modernisierung der Bohranlage T207 inkl. Motor, Pumpen und elektrische Systeme",
+    objectives:
+      "Lebensdauer verlängern, Effizienz steigern, Ausfallzeiten reduzieren",
+    scope:
+      "Motor-Überholung, Pumpen-Austausch, Elektrische Systeme modernisieren, Hydraulik prüfen",
+    notes: "Koordination mit Produktion für minimale Downtime erforderlich",
+    risks:
+      "Wetter-abhängige Verzögerungen möglich, Ersatzteil-Verfügbarkeit kritisch",
+    createdAt: "2025-09-01T08:00:00",
+    updatedAt: "2025-10-12T14:30:00",
+  },
+  {
+    id: 2,
+    assetId: 1,
+    assetName: "T207",
+    projectName: "T207 Digitalisierung Q4/2025",
+    status: "Geplant",
+    progress: 10,
+    budget: 75000,
+    spent: 7500,
+    startDate: "2025-12-01",
+    endDate: "2026-02-28",
+    priority: "Normal",
+    manager: "Anna E-Super",
+    description:
+      "Installation von IoT-Sensoren und Predictive Maintenance System",
+    objectives:
+      "Vorausschauende Wartung ermöglichen, Datenerfassung automatisieren",
+    scope: "Sensoren installieren, Software implementieren, Personal schulen",
+    notes: "Abhängig von Abschluss der Überholung",
+    risks: "Software-Integration komplex",
+    createdAt: "2025-09-15T10:00:00",
+    updatedAt: "2025-09-15T10:00:00",
+  },
+  {
+    id: 3,
+    assetId: 2,
+    assetName: "T208",
+    projectName: "T208 Sicherheits-Upgrade",
+    status: "In Arbeit",
+    progress: 85,
+    budget: 45000,
+    spent: 38250,
+    startDate: "2025-08-15",
+    endDate: "2025-10-20",
+    priority: "Hoch",
+    manager: "Anna E-Super",
+    description:
+      "Installation neuer Sicherheitssysteme und Notfall-Abschaltungen",
+    objectives: "Compliance mit neuen Sicherheitsstandards, Risiko-Minimierung",
+    scope:
+      "Notfall-Stopp-Systeme, Gas-Detektoren, Alarm-Systeme, Schulung Personal",
+    notes: "Projekt läuft planmäßig, Abschluss voraussichtlich pünktlich",
+    risks: "Minimal - Routine-Upgrade",
+    createdAt: "2025-08-15T08:00:00",
+    updatedAt: "2025-10-10T16:45:00",
+  },
+  {
+    id: 4,
+    assetId: 3,
+    assetName: "T700",
+    projectName: "T700 Rig Move - Feld Ost",
+    status: "Geplant",
+    progress: 15,
+    budget: 85000,
+    spent: 12750,
+    startDate: "2025-11-01",
+    endDate: "2025-12-15",
+    priority: "Kritisch",
+    manager: "Tom M-Super",
+    description:
+      "Umzug der Anlage T700 vom aktuellen Standort zu neuem Bohrplatz in Feld Ost",
+    objectives:
+      "Sichere Demontage, Transport und Wiederaufbau am neuen Standort",
+    scope:
+      "Komplette Demontage, Spezial-Transport, Foundation am neuen Standort, Re-Assembly, Testing",
+    notes: "Straßensperre für Schwertransport bereits genehmigt",
+    risks: "Wetter-kritisch, Transport-Logistik komplex",
+    createdAt: "2025-09-20T09:00:00",
+    updatedAt: "2025-10-05T11:20:00",
+  },
+  {
+    id: 5,
+    assetId: 3,
+    assetName: "T700",
+    projectName: "T700 Standort-Vorbereitung Feld Ost",
+    status: "In Arbeit",
+    progress: 45,
+    budget: 35000,
+    spent: 15750,
+    startDate: "2025-10-01",
+    endDate: "2025-10-31",
+    priority: "Kritisch",
+    manager: "Tom M-Super",
+    description: "Vorbereitung des neuen Standorts für T700 Rig Move",
+    objectives: "Foundation errichten, Infrastruktur vorbereiten",
+    scope: "Beton-Foundation, Strom-/Wasseranschlüsse, Zufahrtswege",
+    notes: "Muss vor Rig Move abgeschlossen sein",
+    risks: "Wetter kann Beton-Arbeiten verzögern",
+    createdAt: "2025-10-01T08:00:00",
+    updatedAt: "2025-10-12T13:15:00",
+  },
+  {
+    id: 6,
+    assetId: 4,
+    assetName: "T46",
+    projectName: "T46 Modernisierung Hydraulik",
+    status: "Abgeschlossen",
+    progress: 100,
+    budget: 65000,
+    spent: 62000,
+    startDate: "2025-06-01",
+    endDate: "2025-08-30",
+    priority: "Normal",
+    manager: "Tom M-Super",
+    description:
+      "Austausch veralteter Hydraulik-Komponenten durch moderne Systeme",
+    objectives: "Wartungsaufwand reduzieren, Zuverlässigkeit erhöhen",
+    scope: "Hydraulik-Pumpen, Ventile, Schläuche, Steuerung modernisiert",
+    notes: "Projekt erfolgreich abgeschlossen, 5% unter Budget",
+    risks: "Keine - Projekt abgeschlossen",
+    createdAt: "2025-06-01T08:00:00",
+    updatedAt: "2025-08-30T16:00:00",
+  },
+  {
+    id: 7,
+    assetId: 4,
+    assetName: "T46",
+    projectName: "T46 Routine Inspektion 2026",
+    status: "Geplant",
+    progress: 0,
+    budget: 25000,
+    spent: 0,
+    startDate: "2026-01-15",
+    endDate: "2026-02-15",
+    priority: "Niedrig",
+    manager: "Tom M-Super",
+    description: "Jährliche Haupt-Inspektion nach Wartungsplan",
+    objectives: "Betriebssicherheit gewährleisten, Verschleiß dokumentieren",
+    scope: "Komplette Sichtprüfung, Funktions-Tests, Dokumentation",
+    notes: "Routine-Projekt, jährlich wiederkehrend",
+    risks: "Keine - Standard-Wartung",
+    createdAt: "2025-09-01T10:00:00",
+    updatedAt: "2025-09-01T10:00:00",
+  },
+];
 
 // ==========================================
 // CONTEXT INTERFACE
@@ -247,6 +409,7 @@ interface DataContextType {
   comments: WorkOrderComment[];
   notifications: Notification[];
   sapMaintenanceItems: SAPMaintenanceItem[];
+  projects: Project[];
 
   addUser: (user: User) => void;
   updateUser: (user: User) => void;
@@ -270,15 +433,19 @@ interface DataContextType {
   markAllNotificationsAsRead: (userId: number) => void;
   getUnreadCount: (userId: number) => number;
 
-  // SAP Functions
   addSAPMaintenanceItems: (items: SAPMaintenanceItem[]) => void;
   clearSAPMaintenanceItems: () => void;
+  deleteAllSAPMaintenanceItems: () => void; // ← HINZUGEFÜGT
   deleteSAPMaintenanceItem: (id: string) => void;
   createWorkOrderFromSAP: (
     sapItem: SAPMaintenanceItem,
     currentUserId: number,
     assignedTo?: number
   ) => WorkOrder;
+
+  addProject: (project: Project) => void;
+  updateProject: (project: Project) => void;
+  deleteProject: (id: number) => void;
 
   resetAllData: () => void;
 }
@@ -313,6 +480,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [sapMaintenanceItems, setSapMaintenanceItems] = useLocalStorage<
     SAPMaintenanceItem[]
   >("maintaIn_sapMaintenanceItems", INITIAL_SAP_DATA);
+  const [projects, setProjects] = useLocalStorage<Project[]>(
+    "maintaIn_projects",
+    INITIAL_PROJECTS
+  );
 
   // User Functions
   const addUser = (user: User) => setUsers([...users, user]);
@@ -371,16 +542,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const getUnreadCount = (userId: number): number =>
     notifications.filter((n) => n.userId === userId && !n.read).length;
 
-  // ==========================================
-  // SAP FUNCTIONS
-  // ==========================================
-
+  // SAP Functions
   const addSAPMaintenanceItems = (items: SAPMaintenanceItem[]) => {
     setSapMaintenanceItems(items);
   };
 
   const clearSAPMaintenanceItems = () => {
     setSapMaintenanceItems([]);
+    console.log("🗑️ Alle SAP Maintenance Items gelöscht");
+  };
+
+  // Alias für clearSAPMaintenanceItems - beide Namen funktionieren
+  const deleteAllSAPMaintenanceItems = () => {
+    clearSAPMaintenanceItems();
   };
 
   const deleteSAPMaintenanceItem = (id: string) => {
@@ -394,28 +568,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     currentUserId: number,
     assignedTo?: number
   ): WorkOrder => {
-    // Berechne nächste ID
     const maxId =
       workOrders.length > 0 ? Math.max(...workOrders.map((wo) => wo.id)) : 0;
     const newId = maxId + 1;
 
-    // Finde Asset basierend auf SAP Asset Name
     const asset = assets.find((a) => a.name === sapItem.asset);
     const assetId = asset?.id || 1;
     const assetName = sapItem.asset;
 
-    // Finde aktuellen User
     const currentUser = users.find((u) => u.id === currentUserId);
     if (!currentUser) {
       throw new Error("Aktueller User nicht gefunden");
     }
 
-    // Finde zugewiesenen User
     const assignedUser = assignedTo
       ? users.find((u) => u.id === assignedTo)
       : undefined;
 
-    // Bestimme Priorität basierend auf Basic Start Date + 14 Tage
     const getTargetDate = (basicStartDate: string): Date | null => {
       if (!basicStartDate) return null;
       const date = new Date(basicStartDate);
@@ -426,14 +595,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const targetDate = getTargetDate(sapItem.basicStartDate);
     const isOverdue = targetDate ? new Date() > targetDate : false;
 
-    // Priorität: Überfällig = Kritisch, sonst Normal
     const priority = isOverdue ? "Kritisch" : "Normal";
-
-    // Bestimme Type basierend auf Work Center
     const type =
       sapItem.mainWorkCenter === "ELEC" ? "Elektrisch" : "Mechanisch";
-
-    // Bestimme Category basierend auf Order Type
     const category =
       sapItem.orderType === "PM02" ? "Im Betrieb" : "Einlagerung & Rig Moves";
 
@@ -466,18 +630,24 @@ System Status: ${sapItem.systemStatus}
       updatedAt: new Date().toISOString(),
       materialRequired: false,
       materialStatus: "Nicht benötigt",
-      // SAP-spezifische Felder
       sapOrderNumber: sapItem.orderNumber,
       sapBasicStartDate: sapItem.basicStartDate,
       sapEquipment: sapItem.equipment,
       sapFunctionalLocation: sapItem.functionalLocation,
     };
 
-    // Work Order hinzufügen
     addWorkOrder(newWorkOrder);
-
     return newWorkOrder;
   };
+
+  // Project Functions
+  const addProject = (project: Project) => setProjects([...projects, project]);
+  const updateProject = (updatedProject: Project) =>
+    setProjects(
+      projects.map((p) => (p.id === updatedProject.id ? updatedProject : p))
+    );
+  const deleteProject = (id: number) =>
+    setProjects(projects.filter((p) => p.id !== id));
 
   // Reset
   const resetAllData = () => {
@@ -487,6 +657,7 @@ System Status: ${sapItem.systemStatus}
     setComments(INITIAL_COMMENTS);
     setNotifications(INITIAL_NOTIFICATIONS);
     setSapMaintenanceItems(INITIAL_SAP_DATA);
+    setProjects(INITIAL_PROJECTS);
   };
 
   const value: DataContextType = {
@@ -496,6 +667,7 @@ System Status: ${sapItem.systemStatus}
     comments,
     notifications,
     sapMaintenanceItems,
+    projects,
     addUser,
     updateUser,
     deleteUser,
@@ -515,8 +687,12 @@ System Status: ${sapItem.systemStatus}
     getUnreadCount,
     addSAPMaintenanceItems,
     clearSAPMaintenanceItems,
+    deleteAllSAPMaintenanceItems, // ← HIER EXPORTIERT
     deleteSAPMaintenanceItem,
     createWorkOrderFromSAP,
+    addProject,
+    updateProject,
+    deleteProject,
     resetAllData,
   };
 

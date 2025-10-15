@@ -4301,3 +4301,837 @@ h1 {
     padding: 1rem;
   }
 }
+
+/* ==========================================
+   ERLEDIGTE WORK ORDERS - VERBESSERTES STYLING
+   ========================================== */
+
+/* Füge dies zu deiner App.css hinzu: */
+
+/* Durchgestrichene erledigte Work Orders */
+.wo-row-completed {
+  position: relative;
+  background: linear-gradient(90deg, 
+    rgba(16, 185, 129, 0.03) 0%, 
+    rgba(16, 185, 129, 0.06) 50%, 
+    rgba(16, 185, 129, 0.03) 100%
+  ) !important;
+}
+
+.wo-row-completed::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--success) 0%, #059669 100%);
+  border-radius: 0 4px 4px 0;
+}
+
+.wo-row-completed:hover {
+  background: linear-gradient(90deg, 
+    rgba(16, 185, 129, 0.08) 0%, 
+    rgba(16, 185, 129, 0.12) 50%, 
+    rgba(16, 185, 129, 0.08) 100%
+  ) !important;
+  opacity: 0.75 !important;
+}
+
+/* Verbesserter "Erledigt" Status Badge */
+.wo-status-completed {
+  background: linear-gradient(135deg, 
+    rgba(16, 185, 129, 0.2) 0%, 
+    rgba(5, 150, 105, 0.25) 100%
+  );
+  color: #047857;
+  font-weight: 800;
+  border: 2px solid rgba(16, 185, 129, 0.3);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.wo-status-completed::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
+}
+
+/* Checkmark Animation für erledigte WOs */
+.wo-status-completed::after {
+  content: "✓";
+  margin-left: 0.25rem;
+  font-size: 1rem;
+  animation: checkmarkPop 0.4s ease;
+}
+
+@keyframes checkmarkPop {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Verbessertes Fertigstellen Button Styling */
+.btn-wo-complete {
+  background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+  color: white;
+  flex: 1;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  position: relative;
+  overflow: hidden;
+  font-weight: 800;
+}
+
+.btn-wo-complete::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn-wo-complete:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.btn-wo-complete:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-wo-complete:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* Erledigte Work Order im Detail Modal */
+.wo-detail-modal .wo-status-completed {
+  font-size: 0.9375rem;
+  padding: 0.625rem 1.25rem;
+}
+
+/* Zusätzlicher visueller Effekt für completed Zeilen */
+.wo-row-completed .wo-id {
+  color: var(--success) !important;
+  font-weight: 900;
+}
+
+.wo-row-completed .wo-title-cell strong {
+  color: #059669 !important;
+}
+
+/* Success Glow Effect für frisch erledigte WOs */
+@keyframes successGlow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(16, 185, 129, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+  }
+}
+
+.wo-row-completed.newly-completed {
+  animation: successGlow 2s ease-in-out;
+}
+
+/* ==========================================
+   ERLEDIGTE WORK ORDERS - VERBESSERTES STYLING
+   ========================================== */
+
+/* Füge dies zu deiner App.css hinzu: */
+
+/* Durchgestrichene erledigte Work Orders */
+.wo-row-completed {
+  position: relative;
+  background: linear-gradient(90deg, 
+    rgba(16, 185, 129, 0.03) 0%, 
+    rgba(16, 185, 129, 0.06) 50%, 
+    rgba(16, 185, 129, 0.03) 100%
+  ) !important;
+}
+
+.wo-row-completed::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--success) 0%, #059669 100%);
+  border-radius: 0 4px 4px 0;
+}
+
+.wo-row-completed:hover {
+  background: linear-gradient(90deg, 
+    rgba(16, 185, 129, 0.08) 0%, 
+    rgba(16, 185, 129, 0.12) 50%, 
+    rgba(16, 185, 129, 0.08) 100%
+  ) !important;
+  opacity: 0.75 !important;
+}
+
+/* Verbesserter "Erledigt" Status Badge */
+.wo-status-completed {
+  background: linear-gradient(135deg, 
+    rgba(16, 185, 129, 0.2) 0%, 
+    rgba(5, 150, 105, 0.25) 100%
+  );
+  color: #047857;
+  font-weight: 800;
+  border: 2px solid rgba(16, 185, 129, 0.3);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.wo-status-completed::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
+}
+
+/* Checkmark Animation für erledigte WOs */
+.wo-status-completed::after {
+  content: "✓";
+  margin-left: 0.25rem;
+  font-size: 1rem;
+  animation: checkmarkPop 0.4s ease;
+}
+
+@keyframes checkmarkPop {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Verbessertes Fertigstellen Button Styling */
+.btn-wo-complete {
+  background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+  color: white;
+  flex: 1;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  position: relative;
+  overflow: hidden;
+  font-weight: 800;
+}
+
+.btn-wo-complete::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn-wo-complete:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.btn-wo-complete:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-wo-complete:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* Erledigte Work Order im Detail Modal */
+.wo-detail-modal .wo-status-completed {
+  font-size: 0.9375rem;
+  padding: 0.625rem 1.25rem;
+}
+
+/* Zusätzlicher visueller Effekt für completed Zeilen */
+.wo-row-completed .wo-id {
+  color: var(--success) !important;
+  font-weight: 900;
+}
+
+.wo-row-completed .wo-title-cell strong {
+  color: #059669 !important;
+}
+
+/* Success Glow Effect für frisch erledigte WOs */
+@keyframes successGlow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(16, 185, 129, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+  }
+}
+
+.wo-row-completed.newly-completed {
+  animation: successGlow 2s ease-in-out;
+}
+
+/* ==========================================
+   CONFIRMATION MODAL - MODERNES DESIGN
+   ========================================== */
+/* Füge dies zu deiner App.css hinzu oder erstelle eine separate ConfirmationModal.css */
+
+/* Overlay */
+.confirm-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  animation: fadeIn 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Modal Container */
+.confirm-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  background: white;
+  border-radius: 24px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+  max-width: 480px;
+  width: 90%;
+  overflow: hidden;
+  animation: modalSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Icon Container */
+.confirm-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 2rem 1.5rem 2rem;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+}
+
+.confirm-modal-icon span {
+  font-size: 4rem;
+  line-height: 1;
+  animation: iconBounce 0.6s ease;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.1));
+}
+
+@keyframes iconBounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  75% {
+    transform: scale(0.95);
+  }
+}
+
+/* Content */
+.confirm-modal-content {
+  padding: 1.5rem 2rem 2rem 2rem;
+  text-align: center;
+}
+
+.confirm-modal-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1.3;
+}
+
+.confirm-modal-message {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* Actions */
+.confirm-modal-actions {
+  display: flex;
+  gap: 0.875rem;
+  padding: 1.5rem 2rem;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Buttons */
+.btn-confirm-cancel,
+.btn-confirm-ok {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-confirm-cancel {
+  background: white;
+  color: #6b7280;
+  border: 2px solid #e5e7eb;
+}
+
+.btn-confirm-cancel:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.btn-confirm-cancel:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* OK Button - Standard (Info) */
+.btn-confirm-ok {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: white;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+}
+
+.btn-confirm-ok:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+}
+
+.btn-confirm-ok:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+}
+
+/* Success Type */
+.confirm-success .confirm-modal-icon {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+}
+
+.btn-confirm-ok.confirm-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+}
+
+.btn-confirm-ok.confirm-success:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+}
+
+/* Danger Type */
+.confirm-danger .confirm-modal-icon {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+}
+
+.btn-confirm-ok.confirm-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+}
+
+.btn-confirm-ok.confirm-danger:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+}
+
+/* Warning Type */
+.confirm-warning .confirm-modal-icon {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+}
+
+.btn-confirm-ok.confirm-warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);
+}
+
+.btn-confirm-ok.confirm-warning:hover {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
+}
+
+/* Info Type */
+.confirm-info .confirm-modal-icon {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+}
+
+/* Ripple Effect */
+.btn-confirm-ok::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn-confirm-ok:active::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+  .confirm-modal {
+    max-width: 95%;
+    border-radius: 20px;
+  }
+
+  .confirm-modal-icon span {
+    font-size: 3rem;
+  }
+
+  .confirm-modal-title {
+    font-size: 1.25rem;
+  }
+
+  .confirm-modal-message {
+    font-size: 0.9375rem;
+  }
+
+  .confirm-modal-actions {
+    flex-direction: column;
+  }
+
+  .btn-confirm-cancel,
+  .btn-confirm-ok {
+    width: 100%;
+  }
+}
+
+/* Pulse Animation für dringende Bestätigungen */
+.confirm-danger .confirm-modal-icon span,
+.confirm-warning .confirm-modal-icon span {
+  animation: iconBounce 0.6s ease, iconPulse 2s ease-in-out infinite 0.6s;
+}
+
+@keyframes iconPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Focus States für Accessibility */
+.btn-confirm-cancel:focus,
+.btn-confirm-ok:focus {
+  outline: 3px solid rgba(37, 99, 235, 0.3);
+  outline-offset: 2px;
+}
+
+.btn-confirm-ok.confirm-success:focus {
+  outline-color: rgba(16, 185, 129, 0.3);
+}
+
+.btn-confirm-ok.confirm-danger:focus {
+  outline-color: rgba(239, 68, 68, 0.3);
+}
+
+.btn-confirm-ok.confirm-warning:focus {
+  outline-color: rgba(245, 158, 11, 0.3);
+}
+
+/* ==========================================
+   TOAST NOTIFICATION SYSTEM
+   ========================================== */
+/* Füge dies zu deiner App.css hinzu */
+
+.toast-container {
+  position: fixed;
+  top: 5rem;
+  right: 2rem;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  min-width: 320px;
+  max-width: 450px;
+  pointer-events: all;
+  animation: toastSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-left: 4px solid;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.toast-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+  animation: iconPop 0.4s ease;
+}
+
+@keyframes iconPop {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.toast-message {
+  flex: 1;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.5;
+}
+
+.toast-close {
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toast-close:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #111827;
+  transform: rotate(90deg);
+}
+
+/* Success Toast */
+.toast-success {
+  border-left-color: #10b981;
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+}
+
+.toast-success .toast-icon {
+  filter: drop-shadow(0 2px 8px rgba(16, 185, 129, 0.3));
+}
+
+/* Error Toast */
+.toast-error {
+  border-left-color: #ef4444;
+  background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+}
+
+.toast-error .toast-icon {
+  filter: drop-shadow(0 2px 8px rgba(239, 68, 68, 0.3));
+}
+
+/* Warning Toast */
+.toast-warning {
+  border-left-color: #f59e0b;
+  background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+}
+
+.toast-warning .toast-icon {
+  filter: drop-shadow(0 2px 8px rgba(245, 158, 11, 0.3));
+  animation: iconPop 0.4s ease, iconShake 0.5s ease 0.4s;
+}
+
+@keyframes iconShake {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-10deg);
+  }
+  75% {
+    transform: rotate(10deg);
+  }
+}
+
+/* Info Toast */
+.toast-info {
+  border-left-color: #3b82f6;
+  background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+}
+
+.toast-info .toast-icon {
+  filter: drop-shadow(0 2px 8px rgba(59, 130, 246, 0.3));
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+  .toast-container {
+    right: 1rem;
+    left: 1rem;
+    top: 4rem;
+  }
+
+  .toast {
+    min-width: auto;
+    width: 100%;
+    max-width: none;
+  }
+
+  .toast-message {
+    font-size: 0.875rem;
+  }
+}
+
+/* Hover Effect */
+.toast:hover {
+  transform: translateX(-4px);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3);
+}
+
+/* Progress Bar (optional) */
+.toast::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: currentColor;
+  opacity: 0.3;
+  animation: toastProgress 4s linear;
+  border-radius: 0 0 12px 12px;
+}
+
+@keyframes toastProgress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.toast-success::after {
+  color: #10b981;
+}
+
+.toast-error::after {
+  color: #ef4444;
+}
+
+.toast-warning::after {
+  color: #f59e0b;
+}
+
+.toast-info::after {
+  color: #3b82f6;
+}
