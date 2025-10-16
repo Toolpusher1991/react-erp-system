@@ -8,11 +8,28 @@ import type { Project } from "../types";
 
 function ProjectManagement() {
   const { currentUser } = useAuth();
-  const { projects, assets, updateProject } = useData();
+  const { projects, assets, updateProject, addProject } = useData();
   const [selectedAssetId, setSelectedAssetId] = useState<number | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newProject, setNewProject] = useState<Partial<Project>>({
+    projectName: "",
+    status: "Geplant",
+    priority: "Normal",
+    progress: 0,
+    description: "",
+    objectives: "",
+    scope: "",
+    startDate: new Date().toISOString().split("T")[0],
+    endDate: "",
+    budget: 0,
+    spent: 0,
+    manager: "",
+    risks: "",
+    notes: "",
+  });
 
   // Sichtbare Assets für den User
   const visibleAssets = currentUser
@@ -100,6 +117,54 @@ function ProjectManagement() {
     setEditingProject(null);
   };
 
+  const handleCreate = () => {
+    if (!selectedAssetId || !newProject.projectName) return;
+
+    const selectedAsset = visibleAssets.find((a) => a.id === selectedAssetId);
+    if (!selectedAsset) return;
+
+    const projectToCreate: Project = {
+      id: Math.max(0, ...projects.map((p) => p.id)) + 1,
+      assetId: selectedAssetId,
+      assetName: selectedAsset.name,
+      projectName: newProject.projectName!,
+      status: (newProject.status as Project["status"]) || "Geplant",
+      priority: (newProject.priority as Project["priority"]) || "Normal",
+      progress: newProject.progress || 0,
+      description: newProject.description || "",
+      objectives: newProject.objectives || "",
+      scope: newProject.scope || "",
+      startDate: newProject.startDate || new Date().toISOString().split("T")[0],
+      endDate: newProject.endDate || new Date().toISOString().split("T")[0],
+      budget: newProject.budget || 0,
+      spent: newProject.spent || 0,
+      manager: newProject.manager || "",
+      risks: newProject.risks || "",
+      notes: newProject.notes || "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    addProject(projectToCreate);
+    setShowCreateModal(false);
+    setNewProject({
+      projectName: "",
+      status: "Geplant",
+      priority: "Normal",
+      progress: 0,
+      description: "",
+      objectives: "",
+      scope: "",
+      startDate: new Date().toISOString().split("T")[0],
+      endDate: "",
+      budget: 0,
+      spent: 0,
+      manager: "",
+      risks: "",
+      notes: "",
+    });
+  };
+
   return (
     <div className="container">
       <div
@@ -117,6 +182,7 @@ function ProjectManagement() {
             background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
             padding: "1rem 2rem",
           }}
+          onClick={() => setShowCreateModal(true)}
         >
           + Neues Projekt
         </button>
@@ -339,7 +405,6 @@ function ProjectManagement() {
           </tbody>
         </table>
       </div>
-
       {/* PROJECT DETAIL MODAL */}
       {selectedProject && (
         <>
@@ -1028,6 +1093,276 @@ function ProjectManagement() {
               </button>
               <button
                 onClick={() => setShowEditModal(false)}
+                className="btn-edit-cancel"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* CREATE MODAL */}
+      {showCreateModal && (
+        <>
+          <div
+            className="wo-modal-overlay"
+            onClick={() => setShowCreateModal(false)}
+            style={{ zIndex: 1001 }}
+          />
+          <div
+            className="wo-edit-modal"
+            style={{ zIndex: 1002, maxWidth: "800px" }}
+          >
+            <div className="wo-edit-header">
+              <div>
+                <h2>➕ Neues Projekt erstellen</h2>
+                <span className="wo-detail-id">
+                  {visibleAssets.find((a) => a.id === selectedAssetId)?.name}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="btn-close-modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="wo-edit-body">
+              <div className="form-group">
+                <label>Projektname *</label>
+                <input
+                  type="text"
+                  value={newProject.projectName}
+                  onChange={(e) =>
+                    setNewProject({
+                      ...newProject,
+                      projectName: e.target.value,
+                    })
+                  }
+                  placeholder="z.B. Turbinen-Modernisierung 2025"
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Status</label>
+                  <select
+                    value={newProject.status}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        status: e.target.value as any,
+                      })
+                    }
+                  >
+                    <option value="Geplant">Geplant</option>
+                    <option value="In Arbeit">In Arbeit</option>
+                    <option value="Verzögert">Verzögert</option>
+                    <option value="On Hold">On Hold</option>
+                    <option value="Abgeschlossen">Abgeschlossen</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Priorität</label>
+                  <select
+                    value={newProject.priority}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        priority: e.target.value as any,
+                      })
+                    }
+                  >
+                    <option value="Niedrig">Niedrig</option>
+                    <option value="Normal">Normal</option>
+                    <option value="Hoch">Hoch</option>
+                    <option value="Kritisch">Kritisch</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Fortschritt (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={newProject.progress}
+                  onChange={(e) =>
+                    setNewProject({
+                      ...newProject,
+                      progress: Number(e.target.value),
+                    })
+                  }
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Beschreibung</label>
+                <textarea
+                  value={newProject.description}
+                  onChange={(e) =>
+                    setNewProject({
+                      ...newProject,
+                      description: e.target.value,
+                    })
+                  }
+                  rows={3}
+                  placeholder="Beschreiben Sie das Projekt..."
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Projektziele</label>
+                <textarea
+                  value={newProject.objectives}
+                  onChange={(e) =>
+                    setNewProject({
+                      ...newProject,
+                      objectives: e.target.value,
+                    })
+                  }
+                  rows={2}
+                  placeholder="Was soll erreicht werden?"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Umfang</label>
+                <textarea
+                  value={newProject.scope}
+                  onChange={(e) =>
+                    setNewProject({
+                      ...newProject,
+                      scope: e.target.value,
+                    })
+                  }
+                  rows={2}
+                  placeholder="Welche Arbeiten sind enthalten?"
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Start-Datum</label>
+                  <input
+                    type="date"
+                    value={newProject.startDate}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        startDate: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>End-Datum</label>
+                  <input
+                    type="date"
+                    value={newProject.endDate}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        endDate: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Budget (EUR)</label>
+                  <input
+                    type="number"
+                    value={newProject.budget}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        budget: Number(e.target.value),
+                      })
+                    }
+                    placeholder="0"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Ausgegeben (EUR)</label>
+                  <input
+                    type="number"
+                    value={newProject.spent}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        spent: Number(e.target.value),
+                      })
+                    }
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Projektleiter</label>
+                <input
+                  type="text"
+                  value={newProject.manager}
+                  onChange={(e) =>
+                    setNewProject({
+                      ...newProject,
+                      manager: e.target.value,
+                    })
+                  }
+                  placeholder="Name des Projektleiters"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Risiken</label>
+                <textarea
+                  value={newProject.risks}
+                  onChange={(e) =>
+                    setNewProject({
+                      ...newProject,
+                      risks: e.target.value,
+                    })
+                  }
+                  rows={2}
+                  placeholder="Potenzielle Risiken..."
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Notizen</label>
+                <textarea
+                  value={newProject.notes}
+                  onChange={(e) =>
+                    setNewProject({
+                      ...newProject,
+                      notes: e.target.value,
+                    })
+                  }
+                  rows={2}
+                  placeholder="Zusätzliche Informationen..."
+                />
+              </div>
+            </div>
+
+            <div className="wo-edit-footer">
+              <button
+                onClick={handleCreate}
+                className="btn-edit-save"
+                disabled={!newProject.projectName}
+              >
+                ✅ Projekt erstellen
+              </button>
+              <button
+                onClick={() => setShowCreateModal(false)}
                 className="btn-edit-cancel"
               >
                 Abbrechen

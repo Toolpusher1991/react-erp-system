@@ -435,7 +435,7 @@ interface DataContextType {
 
   addSAPMaintenanceItems: (items: SAPMaintenanceItem[]) => void;
   clearSAPMaintenanceItems: () => void;
-  deleteAllSAPMaintenanceItems: () => void; // ← HINZUGEFÜGT
+  deleteAllSAPMaintenanceItems: () => void;
   deleteSAPMaintenanceItem: (id: string) => void;
   createWorkOrderFromSAP: (
     sapItem: SAPMaintenanceItem,
@@ -552,7 +552,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     console.log("🗑️ Alle SAP Maintenance Items gelöscht");
   };
 
-  // Alias für clearSAPMaintenanceItems - beide Namen funktionieren
   const deleteAllSAPMaintenanceItems = () => {
     clearSAPMaintenanceItems();
   };
@@ -687,7 +686,7 @@ System Status: ${sapItem.systemStatus}
     getUnreadCount,
     addSAPMaintenanceItems,
     clearSAPMaintenanceItems,
-    deleteAllSAPMaintenanceItems, // ← HIER EXPORTIERT
+    deleteAllSAPMaintenanceItems,
     deleteSAPMaintenanceItem,
     createWorkOrderFromSAP,
     addProject,

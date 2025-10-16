@@ -10,10 +10,11 @@ import WorkOrderManagement from "./WorkOrderManagement";
 import PreventiveMaintenance from "./PreventiveMaintenance";
 import ProjectManagement from "./ProjectManagement";
 import NotificationBell from "../components/NotificationBell";
+import SAPPreventiveMaintenance from "./SAPPreventiveMaintenance";
 
 function Dashboard() {
   const [currentPage, setCurrentPage] = useState<
-    "users" | "assets" | "workorders" | "sappm" | "projects"
+    "users" | "assets" | "workorders" | "sappm" | "sap-pm" | "projects"
   >("workorders");
 
   const { currentUser, logout } = useAuth();
@@ -133,6 +134,12 @@ function Dashboard() {
         >
           📋 SAP Preventive Maintenance
         </button>
+        <button
+          className={currentPage === "sap-pm" ? "nav-btn active" : "nav-btn"}
+          onClick={() => setCurrentPage("sap-pm")}
+        >
+          🔧 SAP PM Inspektionen
+        </button>
       </nav>
 
       {/* Content */}
@@ -143,6 +150,7 @@ function Dashboard() {
         <WorkOrderManagement initialSelectedId={selectedWorkOrderId} />
       )}
       {currentPage === "sappm" && <PreventiveMaintenance />}
+      {currentPage === "sap-pm" && <SAPPreventiveMaintenance />}
     </div>
   );
 }
