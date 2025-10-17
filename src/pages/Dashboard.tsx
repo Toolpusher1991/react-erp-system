@@ -11,10 +11,17 @@ import PreventiveMaintenance from "./PreventiveMaintenance";
 import ProjectManagement from "./ProjectManagement";
 import NotificationBell from "../components/NotificationBell";
 import SAPPreventiveMaintenance from "./SAPPreventiveMaintenance";
+import ChatBot from "../components/ChatBot"; // NEU!
 
 function Dashboard() {
   const [currentPage, setCurrentPage] = useState<
-    "users" | "assets" | "workorders" | "sappm" | "sap-pm" | "projects"
+    | "users"
+    | "assets"
+    | "workorders"
+    | "sappm"
+    | "sap-pm"
+    | "projects"
+    | "chatbot" // NEU: chatbot hinzugefügt
   >("workorders");
 
   const { currentUser, logout } = useAuth();
@@ -140,6 +147,21 @@ function Dashboard() {
         >
           🔧 SAP PM Inspektionen
         </button>
+        {/* NEU: Chatbot Navigation Button */}
+        <button
+          className={currentPage === "chatbot" ? "nav-btn active" : "nav-btn"}
+          onClick={() => setCurrentPage("chatbot")}
+          style={{
+            background:
+              currentPage === "chatbot"
+                ? "linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)"
+                : undefined,
+            color: currentPage === "chatbot" ? "white" : undefined,
+            border: currentPage === "chatbot" ? "none" : undefined,
+          }}
+        >
+          🤖 AI Assistent
+        </button>
       </nav>
 
       {/* Content */}
@@ -151,6 +173,8 @@ function Dashboard() {
       )}
       {currentPage === "sappm" && <PreventiveMaintenance />}
       {currentPage === "sap-pm" && <SAPPreventiveMaintenance />}
+      {/* NEU: Chatbot Content */}
+      {currentPage === "chatbot" && <ChatBot />}
     </div>
   );
 }
