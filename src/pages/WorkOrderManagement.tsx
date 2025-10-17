@@ -1,9 +1,9 @@
 // src/pages/WorkOrderManagement.tsx
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useData } from "../contexts/DataContext";
 import { useToast } from "../components/ToastContainer";
-import { canAccessAsset, filterAssetsForUser } from "../utils/permissions";
+import { canAccessAsset } from "../utils/permissions";
+import { getWorkOrders, getAssets } from "../services/api";
 import CreateWorkOrderModal from "../components/CreateWorkOrderModal";
 import EditWorkOrderModal from "../components/EditWorkOrderModal";
 import ConfirmationModal from "../components/ConfirmationModal";
@@ -17,18 +17,48 @@ interface WorkOrderManagementProps {
 
 function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
   const { currentUser } = useAuth();
-  const {
-    workOrders,
-    assets,
-    users,
-    addWorkOrder,
-    updateWorkOrder,
-    deleteWorkOrder,
-    addNotification,
-    notifications,
-    addComment,
-    comments,
-  } = useData();
+
+  // Backend state
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load data from backend
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        console.log("📋 Loading Work Orders from Backend...");
+
+        const [workOrdersResult, assetsResult] = await Promise.all([
+          getWorkOrders(),
+          getAssets(),
+        ]);
+
+        if (workOrdersResult.data) {
+          setWorkOrders(workOrdersResult.data.workOrders || []);
+          console.log(
+            "✅ Work Orders loaded:",
+            workOrdersResult.data.workOrders?.length
+          );
+        }
+
+        if (assetsResult.data) {
+          setAssets(assetsResult.data.assets || []);
+          console.log("✅ Assets loaded:", assetsResult.data.assets?.length);
+        }
+      } catch (error) {
+        console.error("❌ Failed to load data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Local state (unchanged)
+  const [comments] = useState<WorkOrderComment[]>([]);
 
   // Toast Hook
   const { showToast } = useToast();
@@ -51,10 +81,15 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
     type: "info" as "success" | "danger" | "warning" | "info",
   });
 
-  // Sichtbare Assets für den User
-  const visibleAssets = currentUser
-    ? filterAssetsForUser(currentUser, assets)
-    : [];
+  // Sichtbare Assets für den User - Admin sieht alle
+  const visibleAssets =
+    currentUser?.role === "Admin"
+      ? assets
+      : assets.filter(
+          (asset) =>
+            currentUser?.assignedAssets?.includes(asset.id) ||
+            currentUser?.assignedAssets?.length === 0
+        );
 
   // Setze erste Anlage als Standard
   useEffect(() => {
@@ -389,6 +424,23 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
         return "";
     }
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="container">
+        <div className="wo-header">
+          <h1>🎫 Work Order Management</h1>
+        </div>
+        <div style={{ textAlign: "center", padding: "50px" }}>
+          <div>⏳ Lade Work Orders vom Backend...</div>
+          <div style={{ marginTop: "10px", fontSize: "14px", color: "#666" }}>
+            Verbinde mit http://localhost:3001/api/workorders
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container">

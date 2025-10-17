@@ -25,6 +25,7 @@ function ApiTestPanel() {
   });
 
   const [testResults, setTestResults] = useState<string[]>([]);
+  const [isVisible, setIsVisible] = useState(true);
 
   // Initial connection test
   useEffect(() => {
@@ -94,6 +95,30 @@ function ApiTestPanel() {
     setTestResults([]);
   };
 
+  // Don't render if not visible
+  if (!isVisible) {
+    return (
+      <button
+        onClick={() => setIsVisible(true)}
+        style={{
+          position: "fixed",
+          top: "10px",
+          right: "10px",
+          background: "#2563eb",
+          color: "white",
+          border: "none",
+          padding: "0.5rem",
+          borderRadius: "50%",
+          cursor: "pointer",
+          zIndex: 9999,
+          fontSize: "1rem",
+        }}
+      >
+        🔌
+      </button>
+    );
+  }
+
   return (
     <div
       style={{
@@ -154,6 +179,20 @@ function ApiTestPanel() {
             }}
           >
             🗑️
+          </button>
+          <button
+            onClick={() => setIsVisible(false)}
+            style={{
+              background: "#ef4444",
+              color: "white",
+              border: "none",
+              padding: "0.25rem 0.5rem",
+              borderRadius: "4px",
+              fontSize: "0.75rem",
+              cursor: "pointer",
+            }}
+          >
+            ✕
           </button>
         </div>
       </div>
