@@ -11,7 +11,6 @@ import PreventiveMaintenance from "./PreventiveMaintenance";
 import ProjectManagement from "./ProjectManagement";
 import NotificationBell from "../components/NotificationBell";
 import SAPPreventiveMaintenance from "./SAPPreventiveMaintenance";
-import ChatBot from "../components/ChatBot"; // NEU!
 
 function Dashboard() {
   const [currentPage, setCurrentPage] = useState<
@@ -21,8 +20,10 @@ function Dashboard() {
     | "sappm"
     | "sap-pm"
     | "projects"
-    | "chatbot" // NEU: chatbot hinzugefügt
+    | "chatbot"
   >("workorders");
+
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const { currentUser, logout } = useAuth();
   const { workOrders } = useData();
@@ -31,25 +32,47 @@ function Dashboard() {
     ? workOrders.filter((wo) => canAccessAsset(currentUser, wo.assetId))
     : [];
 
-  const openWorkOrders = visibleWorkOrders.filter(
-    (wo) => wo.status !== "Erledigt" && wo.status !== "Abgebrochen"
-  );
-
-  const criticalWorkOrders = visibleWorkOrders.filter(
-    (wo) => wo.priority === "Kritisch"
-  );
-
-  const myAssignedWorkOrders = visibleWorkOrders.filter(
-    (wo) => wo.assignedTo === currentUser?.id
-  );
-
   const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<number | null>(
     null
   );
 
+  const navItems = [
+    {
+      id: "users" as const,
+      icon: "👥",
+      label: "Benutzerverwaltung",
+      visible: currentUser?.role === "Admin",
+    },
+    { id: "projects" as const, icon: "🏗️", label: "Projekte", visible: true },
+    {
+      id: "assets" as const,
+      icon: "🛢️",
+      label: "Anlagenverwaltung",
+      visible: true,
+    },
+    {
+      id: "workorders" as const,
+      icon: "🎫",
+      label: "Work Orders",
+      visible: true,
+    },
+    {
+      id: "sappm" as const,
+      icon: "📋",
+      label: "SAP Preventive Maintenance",
+      visible: true,
+    },
+    {
+      id: "sap-pm" as const,
+      icon: "🔧",
+      label: "SAP PM Inspektionen",
+      visible: true,
+    },
+  ];
+
   return (
-    <div>
-      {/* Logout Header */}
+    <div className={isDarkMode ? "dark-mode" : ""}>
+      {/* Header */}
       <div className="dashboard-header">
         <div>
           <span>
@@ -58,6 +81,15 @@ function Dashboard() {
           <span className="user-role">({currentUser?.role})</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          {/* Dark Mode Toggle */}
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className={isDarkMode ? "dark-mode-toggle" : "light-mode-toggle"}
+            title={isDarkMode ? "Light Mode" : "Dark Mode"}
+          >
+            {isDarkMode ? "☀️" : "🌙"}
+          </button>
+
           <NotificationBell
             onOpenWorkOrder={(woId) => {
               setCurrentPage("workorders");
@@ -70,111 +102,33 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Dashboard Statistics */}
-      <div className="dashboard-stats">
-        <div className="dashboard-stat-card open">
-          <div className="stat-icon">🎫</div>
-          <div className="stat-content">
-            <h3>Offene Work Orders</h3>
-            <p className="stat-big-number">{openWorkOrders.length}</p>
-          </div>
-        </div>
-
-        <div className="dashboard-stat-card critical">
-          <div className="stat-icon">🚨</div>
-          <div className="stat-content">
-            <h3>Kritische</h3>
-            <p className="stat-big-number">{criticalWorkOrders.length}</p>
-          </div>
-        </div>
-
-        <div className="dashboard-stat-card assigned">
-          <div className="stat-icon">👤</div>
-          <div className="stat-content">
-            <h3>Mir zugewiesen</h3>
-            <p className="stat-big-number">{myAssignedWorkOrders.length}</p>
-          </div>
-        </div>
-
-        <div className="dashboard-stat-card total">
-          <div className="stat-icon">📊</div>
-          <div className="stat-content">
-            <h3>Gesamt sichtbar</h3>
-            <p className="stat-big-number">{visibleWorkOrders.length}</p>
-          </div>
-        </div>
-      </div>
-
       {/* Navigation */}
       <nav className="dashboard-nav">
-        {currentUser?.role === "Admin" && (
-          <button
-            className={currentPage === "users" ? "nav-btn active" : "nav-btn"}
-            onClick={() => setCurrentPage("users")}
-          >
-            👥 Benutzerverwaltung
-          </button>
-        )}
-        <button
-          className={currentPage === "projects" ? "nav-btn active" : "nav-btn"}
-          onClick={() => setCurrentPage("projects")}
-        >
-          🏗️ Projekte
-        </button>
-        <button
-          className={currentPage === "assets" ? "nav-btn active" : "nav-btn"}
-          onClick={() => setCurrentPage("assets")}
-        >
-          🛢️ Anlagenverwaltung
-        </button>
-        <button
-          className={
-            currentPage === "workorders" ? "nav-btn active" : "nav-btn"
-          }
-          onClick={() => setCurrentPage("workorders")}
-        >
-          🎫 Work Orders
-        </button>
-        <button
-          className={currentPage === "sappm" ? "nav-btn active" : "nav-btn"}
-          onClick={() => setCurrentPage("sappm")}
-        >
-          📋 SAP Preventive Maintenance
-        </button>
-        <button
-          className={currentPage === "sap-pm" ? "nav-btn active" : "nav-btn"}
-          onClick={() => setCurrentPage("sap-pm")}
-        >
-          🔧 SAP PM Inspektionen
-        </button>
-        {/* NEU: Chatbot Navigation Button */}
-        <button
-          className={currentPage === "chatbot" ? "nav-btn active" : "nav-btn"}
-          onClick={() => setCurrentPage("chatbot")}
-          style={{
-            background:
-              currentPage === "chatbot"
-                ? "linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)"
-                : undefined,
-            color: currentPage === "chatbot" ? "white" : undefined,
-            border: currentPage === "chatbot" ? "none" : undefined,
-          }}
-        >
-          🤖 AI Assistent
-        </button>
+        {navItems
+          .filter((item) => item.visible)
+          .map((item) => (
+            <button
+              key={item.id}
+              className={currentPage === item.id ? "nav-btn active" : "nav-btn"}
+              onClick={() => setCurrentPage(item.id)}
+            >
+              <span style={{ marginRight: "0.5rem" }}>{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
       </nav>
 
       {/* Content */}
-      {currentPage === "users" && <UserManagement />}
-      {currentPage === "projects" && <ProjectManagement />}
-      {currentPage === "assets" && <AssetManagement />}
-      {currentPage === "workorders" && (
-        <WorkOrderManagement initialSelectedId={selectedWorkOrderId} />
-      )}
-      {currentPage === "sappm" && <PreventiveMaintenance />}
-      {currentPage === "sap-pm" && <SAPPreventiveMaintenance />}
-      {/* NEU: Chatbot Content */}
-      {currentPage === "chatbot" && <ChatBot />}
+      <div>
+        {currentPage === "users" && <UserManagement />}
+        {currentPage === "projects" && <ProjectManagement />}
+        {currentPage === "assets" && <AssetManagement />}
+        {currentPage === "workorders" && (
+          <WorkOrderManagement initialSelectedId={selectedWorkOrderId} />
+        )}
+        {currentPage === "sappm" && <PreventiveMaintenance />}
+        {currentPage === "sap-pm" && <SAPPreventiveMaintenance />}
+      </div>
     </div>
   );
 }
