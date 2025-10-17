@@ -90,6 +90,11 @@ export function canAccessAsset(user: User, assetId: number): boolean {
     return true
   }
   
+  // Handle JWT users without assignedAssets property
+  if (!user.assignedAssets || !Array.isArray(user.assignedAssets)) {
+    return false
+  }
+  
   return user.assignedAssets.includes(assetId)
 }
 
@@ -101,6 +106,11 @@ export function filterAssetsForUser(user: User, assets: Asset[]): Asset[] {
     user.role === 'RSC'
   ) {
     return assets
+  }
+  
+  // Handle JWT users without assignedAssets property
+  if (!user.assignedAssets || !Array.isArray(user.assignedAssets)) {
+    return []
   }
   
   return assets.filter(asset => user.assignedAssets.includes(asset.id))

@@ -2,6 +2,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import authRoutes from './routes/authRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -13,7 +14,7 @@ const PORT = process.env.PORT || 3001;
 // MIDDLEWARE
 // ==========================================
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: process.env.CORS_ORIGIN || ['http://localhost:5173', 'http://localhost:5174'],
   credentials: true,
 }));
 app.use(express.json());
@@ -111,7 +112,14 @@ app.get('/api/health', (req, res) => {
 });
 
 // ==========================================
-// AUTH ROUTES
+// ROUTE MOUNTING
+// ==========================================
+
+// Mount Auth Routes
+app.use('/api/auth', authRoutes);
+
+// ==========================================
+// LEGACY AUTH ROUTES (TO BE REMOVED)
 // ==========================================
 
 // POST /api/auth/login
@@ -391,6 +399,126 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 });
 
 // ==========================================
+// WORK ORDER ROUTES
+// ==========================================
+
+// GET /api/workorders - Alle Work Orders
+app.get('/api/workorders', (req, res) => {
+  // TODO: Später aus Datenbank
+  const mockWorkOrders = [
+    {
+      id: 1,
+      title: 'Motor überhitzt',
+      description: 'Motor auf T207 läuft zu heiß, Kühlung prüfen.',
+      assetId: 1,
+      assetName: 'T207',
+      type: 'Mechanisch',
+      category: 'Im Betrieb',
+      priority: 'Hoch',
+      status: 'In Arbeit',
+      createdBy: 2,
+      createdByName: 'Anna E-Super',
+      assignedTo: 11,
+      assignedToName: 'T207 Mechaniker',
+      createdAt: '2025-10-10T08:30:00',
+      updatedAt: '2025-10-10T09:15:00',
+      materialRequired: false,
+      materialStatus: 'Nicht benötigt',
+    },
+    {
+      id: 2,
+      title: 'Elektrischer Ausfall Pumpe',
+      description: 'Pumpe auf T208 reagiert nicht, Verkabelung prüfen.',
+      assetId: 2,
+      assetName: 'T208',
+      type: 'Elektrisch',
+      category: 'Im Betrieb',
+      priority: 'Kritisch',
+      status: 'Zugewiesen',
+      createdBy: 3,
+      createdByName: 'Tom M-Super',
+      assignedTo: 12,
+      assignedToName: 'T208 Elektriker',
+      createdAt: '2025-10-10T10:00:00',
+      updatedAt: '2025-10-10T10:00:00',
+      materialRequired: false,
+      materialStatus: 'Nicht benötigt',
+    },
+  ];
+
+  console.log('📋 Returning Work Orders:', mockWorkOrders.length);
+  res.json({
+    workOrders: mockWorkOrders,
+    count: mockWorkOrders.length,
+  });
+});
+
+// POST /api/workorders - Neuer Work Order
+app.post('/api/workorders', (req, res) => {
+  const { title, description, assetId, type, priority } = req.body;
+
+  if (!title || !description || !assetId) {
+    return res.status(400).json({
+      error: 'Titel, Beschreibung und AssetId sind erforderlich',
+    });
+  }
+
+  const newWorkOrder = {
+    id: Math.floor(Math.random() * 10000),
+    title,
+    description,
+    assetId,
+    type: type || 'Sonstiges',
+    priority: priority || 'Normal',
+    status: 'Neu',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  console.log(`✅ Work Order created: ${title}`);
+  res.status(201).json({
+    workOrder: newWorkOrder,
+    message: 'Work Order erfolgreich erstellt',
+  });
+});
+
+// ==========================================
+// ASSET ROUTES
+// ==========================================
+
+// GET /api/assets - Alle Anlagen
+app.get('/api/assets', (req, res) => {
+  const mockAssets = [
+    {
+      id: 1,
+      name: 'T207',
+      type: 'Bohranlage',
+      status: 'Betrieb',
+      location: 'Feld Nord',
+      serialNumber: 'BA-T207-2023',
+      assignedUsers: [],
+      notes: 'Hauptbohranlage Standort Nord',
+    },
+    {
+      id: 2,
+      name: 'T208',
+      type: 'Bohranlage',
+      status: 'Betrieb',
+      location: 'Feld Nord',
+      serialNumber: 'BA-T208-2023',
+      assignedUsers: [],
+      notes: 'Hauptbohranlage Standort Nord',
+    },
+  ];
+
+  console.log('🏭 Returning Assets:', mockAssets.length);
+  res.json({
+    assets: mockAssets,
+    count: mockAssets.length,
+  });
+});
+
+// ==========================================
 // START SERVER
 // ==========================================
 app.listen(PORT, () => {
@@ -408,6 +536,9 @@ app.listen(PORT, () => {
   console.log('   GET  /api/auth/me');
   console.log('   GET  /api/users');
   console.log('   GET  /api/users/:id');
+  console.log('   GET  /api/workorders');
+  console.log('   POST /api/workorders');
+  console.log('   GET  /api/assets');
   console.log('='.repeat(70) + '\n');
 });
 

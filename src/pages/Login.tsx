@@ -1,17 +1,19 @@
 import { useState } from "react";
 import "./Login.css";
 import { useAuth } from "../contexts/AuthContext";
-import { useData } from "../contexts/DataContext"; // NEU!
+import { useData } from "../contexts/DataContext";
+import LoginForm from "../components/LoginForm";
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showBackendLogin, setShowBackendLogin] = useState(false);
 
-  // Hole login-Funktion aus dem AuthContext
+  // Auth context functions
   const { login } = useAuth();
 
-  // Hole users aus dem DataContext (statt lokaler Konstante)
+  // Hole users aus dem DataContext (für Legacy-Login)
   const { users } = useData();
 
   const handleLogin = (e: React.FormEvent) => {
@@ -57,10 +59,21 @@ function Login() {
           <button type="submit">Anmelden</button>
         </form>
 
+        {/* Backend Auth Toggle */}
+        <div className="backend-auth-section">
+          <button
+            type="button"
+            className="backend-auth-toggle"
+            onClick={() => setShowBackendLogin(true)}
+          >
+            🔐 JWT Backend Login
+          </button>
+        </div>
+
         {/* Hilfe für Test-User */}
         <div className="test-users">
           <p>
-            <strong>💡 Test-Accounts:</strong>
+            <strong>💡 Test-Accounts (LocalStorage):</strong>
           </p>
           <p>Admin: admin@erp.de / admin123</p>
           <p>E-Supervisor: esuper@erp.de / es123</p>
@@ -68,6 +81,11 @@ function Login() {
           <p>T208 Mechaniker: t208-mech / t208</p>
         </div>
       </div>
+
+      {/* Backend Login Modal */}
+      {showBackendLogin && (
+        <LoginForm onClose={() => setShowBackendLogin(false)} />
+      )}
     </div>
   );
 }

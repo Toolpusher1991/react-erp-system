@@ -164,3 +164,21 @@ export const testConnection = async () => {
   console.log('✅ Backend Connection Successful:', health.data);
   return true;
 };
+
+// ==========================================
+// WORK ORDER HELPER FUNCTIONS
+// ==========================================
+
+export const fetchWorkOrders = async () => {
+  console.log('📋 Fetching Work Orders from Backend...');
+  
+  const result = await getWorkOrders();
+  
+  if (result.error) {
+    console.error('❌ Failed to fetch Work Orders:', result.error);
+    return [];
+  }
+  
+  console.log('✅ Work Orders fetched successfully:', result.data);
+  return result.data || [];
+};
