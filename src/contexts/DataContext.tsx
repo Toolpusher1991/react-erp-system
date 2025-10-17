@@ -1,5 +1,5 @@
 // ==========================================
-// DATA CONTEXT - VOLLSTÄNDIG MIT PROJECT MANAGEMENT
+// DATA CONTEXT - VOLLSTÄNDIG MIT SAP INTEGRATION
 // ==========================================
 
 import { createContext, useContext, type ReactNode } from "react";
@@ -12,6 +12,8 @@ import type {
   Notification,
   SAPMaintenanceItem,
   Project,
+  WorkOrderType,
+  WorkOrderPriority,
 } from "../types";
 
 // ==========================================
@@ -58,7 +60,7 @@ const INITIAL_USERS: User[] = [
   {
     id: 10,
     name: "T207 Elektriker",
-    email: "t207-el",
+    email: "t207-el@erp.de",
     password: "t207",
     role: "Elektriker",
     status: "Aktiv",
@@ -67,7 +69,7 @@ const INITIAL_USERS: User[] = [
   {
     id: 11,
     name: "T207 Mechaniker",
-    email: "t207-mech",
+    email: "t207-mech@erp.de",
     password: "t207",
     role: "Mechaniker",
     status: "Aktiv",
@@ -76,7 +78,7 @@ const INITIAL_USERS: User[] = [
   {
     id: 12,
     name: "T208 Elektriker",
-    email: "t208-el",
+    email: "t208-el@erp.de",
     password: "t208",
     role: "Elektriker",
     status: "Aktiv",
@@ -85,7 +87,7 @@ const INITIAL_USERS: User[] = [
   {
     id: 13,
     name: "T208 Mechaniker",
-    email: "t208-mech",
+    email: "t208-mech@erp.de",
     password: "t208",
     role: "Mechaniker",
     status: "Aktiv",
@@ -94,7 +96,7 @@ const INITIAL_USERS: User[] = [
   {
     id: 14,
     name: "T700 Elektriker",
-    email: "t700-el",
+    email: "t700-el@erp.de",
     password: "t700",
     role: "Elektriker",
     status: "Aktiv",
@@ -103,7 +105,7 @@ const INITIAL_USERS: User[] = [
   {
     id: 15,
     name: "T700 Mechaniker",
-    email: "t700-mech",
+    email: "t700-mech@erp.de",
     password: "t700",
     role: "Mechaniker",
     status: "Aktiv",
@@ -112,7 +114,7 @@ const INITIAL_USERS: User[] = [
   {
     id: 16,
     name: "T46 Elektriker",
-    email: "t46-el",
+    email: "t46-el@erp.de",
     password: "t46",
     role: "Elektriker",
     status: "Aktiv",
@@ -121,7 +123,7 @@ const INITIAL_USERS: User[] = [
   {
     id: 17,
     name: "T46 Mechaniker",
-    email: "t46-mech",
+    email: "t46-mech@erp.de",
     password: "t46",
     role: "Mechaniker",
     status: "Aktiv",
@@ -480,25 +482,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [sapMaintenanceItems, setSapMaintenanceItems] = useLocalStorage<
     SAPMaintenanceItem[]
   >("maintaIn_sapMaintenanceItems", INITIAL_SAP_DATA);
+
   const [projects, setProjects] = useLocalStorage<Project[]>(
     "maintaIn_projects",
     INITIAL_PROJECTS
   );
 
-  // User Functions
+  // ==========================================
+  // USER FUNCTIONS
+  // ==========================================
+
   const addUser = (user: User) => setUsers([...users, user]);
   const updateUser = (updatedUser: User) =>
     setUsers(users.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
   const deleteUser = (id: number) => setUsers(users.filter((u) => u.id !== id));
 
-  // Asset Functions
+  // ==========================================
+  // ASSET FUNCTIONS
+  // ==========================================
+
   const addAsset = (asset: Asset) => setAssets([...assets, asset]);
   const updateAsset = (updatedAsset: Asset) =>
     setAssets(assets.map((a) => (a.id === updatedAsset.id ? updatedAsset : a)));
   const deleteAsset = (id: number) =>
     setAssets(assets.filter((a) => a.id !== id));
 
-  // WorkOrder Functions
+  // ==========================================
+  // WORK ORDER FUNCTIONS
+  // ==========================================
+
   const addWorkOrder = (workOrder: WorkOrder) =>
     setWorkOrders([...workOrders, workOrder]);
   const updateWorkOrder = (updatedWO: WorkOrder) =>
@@ -508,7 +520,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const deleteWorkOrder = (id: number) =>
     setWorkOrders(workOrders.filter((wo) => wo.id !== id));
 
-  // Comment Functions
+  // ==========================================
+  // COMMENT FUNCTIONS
+  // ==========================================
+
   const addComment = (comment: WorkOrderComment) =>
     setComments([...comments, comment]);
   const getCommentsForWorkOrder = (workOrderId: number): WorkOrderComment[] =>
@@ -521,7 +536,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const deleteComment = (id: number) =>
     setComments(comments.filter((c) => c.id !== id));
 
-  // Notification Functions
+  // ==========================================
+  // NOTIFICATION FUNCTIONS
+  // ==========================================
+
   const addNotification = (notification: Notification) =>
     setNotifications([...notifications, notification]);
   const getNotificationsForUser = (userId: number): Notification[] =>
@@ -542,7 +560,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const getUnreadCount = (userId: number): number =>
     notifications.filter((n) => n.userId === userId && !n.read).length;
 
-  // SAP Functions
+  // ==========================================
+  // SAP FUNCTIONS
+  // ==========================================
+
   const addSAPMaintenanceItems = (items: SAPMaintenanceItem[]) => {
     setSapMaintenanceItems(items);
   };
@@ -567,14 +588,52 @@ export function DataProvider({ children }: { children: ReactNode }) {
     currentUserId: number,
     assignedTo?: number
   ): WorkOrder => {
-    const maxId =
-      workOrders.length > 0 ? Math.max(...workOrders.map((wo) => wo.id)) : 0;
-    const newId = maxId + 1;
+    // Bestimme Work Order Type basierend auf Work Center
+    let woType: WorkOrderType = "Mechanisch";
+    if (sapItem.mainWorkCenter === "ELEC") {
+      woType = "Elektrisch";
+    } else if (sapItem.mainWorkCenter === "MECH") {
+      woType = "Mechanisch";
+    }
 
+    // Bestimme Priorität basierend auf Fälligkeit
+    const getTargetDate = (basicStartDate: string): Date | null => {
+      if (!basicStartDate) return null;
+      try {
+        const date = new Date(basicStartDate);
+        date.setDate(date.getDate() + 14);
+        return date;
+      } catch {
+        return null;
+      }
+    };
+
+    const targetDate = getTargetDate(sapItem.basicStartDate);
+    const today = new Date();
+    const daysUntilDue = targetDate
+      ? Math.ceil(
+          (targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+        )
+      : null;
+
+    let priority: WorkOrderPriority = "Normal";
+    if (daysUntilDue !== null) {
+      if (daysUntilDue < 0) {
+        priority = "Kritisch";
+      } else if (daysUntilDue <= 3) {
+        priority = "Hoch";
+      } else if (daysUntilDue <= 7) {
+        priority = "Normal";
+      } else {
+        priority = "Niedrig";
+      }
+    }
+
+    // Finde Asset ID basierend auf Asset Name
     const asset = assets.find((a) => a.name === sapItem.asset);
     const assetId = asset?.id || 1;
-    const assetName = sapItem.asset;
 
+    // Finde User Namen
     const currentUser = users.find((u) => u.id === currentUserId);
     if (!currentUser) {
       throw new Error("Aktueller User nicht gefunden");
@@ -584,62 +643,82 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ? users.find((u) => u.id === assignedTo)
       : undefined;
 
-    const getTargetDate = (basicStartDate: string): Date | null => {
-      if (!basicStartDate) return null;
-      const date = new Date(basicStartDate);
-      date.setDate(date.getDate() + 14);
-      return date;
-    };
-
-    const targetDate = getTargetDate(sapItem.basicStartDate);
-    const isOverdue = targetDate ? new Date() > targetDate : false;
-
-    const priority = isOverdue ? "Kritisch" : "Normal";
-    const type =
-      sapItem.mainWorkCenter === "ELEC" ? "Elektrisch" : "Mechanisch";
-    const category =
-      sapItem.orderType === "PM02" ? "Im Betrieb" : "Einlagerung & Rig Moves";
-
-    const newWorkOrder: WorkOrder = {
-      id: newId,
-      title: sapItem.description,
-      description: `${sapItem.descriptionDetail}
-
-📋 SAP Information:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Order Nr.: ${sapItem.orderNumber}
+    // Erstelle SAP Information String für sapInformation Feld
+    const sapInfo = `SAP Order: ${sapItem.orderNumber}
 Order Type: ${sapItem.orderType}
 Work Center: ${sapItem.mainWorkCenter}
 Equipment: ${sapItem.equipment}
 Functional Location: ${sapItem.functionalLocation}
-Basic Start Date: ${sapItem.basicStartDate}
 System Status: ${sapItem.systemStatus}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-      assetId: assetId,
-      assetName: assetName,
-      type: type as any,
+Basic Start Date: ${new Date(sapItem.basicStartDate).toLocaleDateString(
+      "de-DE"
+    )}`;
+
+    // Bestimme Kategorie basierend auf descriptionExtra
+    const category =
+      sapItem.descriptionExtra?.toLowerCase().includes("einlagerung") ||
+      sapItem.descriptionExtra?.toLowerCase().includes("rig move")
+        ? "Einlagerung & Rig Moves"
+        : "Im Betrieb";
+
+    // Erstelle neuen Work Order
+    const maxId =
+      workOrders.length > 0 ? Math.max(...workOrders.map((wo) => wo.id)) : 0;
+    const newId = maxId + 1;
+
+    const newWO: WorkOrder = {
+      id: newId,
+      title: sapItem.description,
+      description: `${sapItem.descriptionDetail}${
+        sapItem.descriptionExtra ? `\n\n${sapItem.descriptionExtra}` : ""
+      }`.trim(),
+      assetId,
+      assetName: sapItem.asset,
+      type: woType,
       category: category as any,
-      priority: priority as any,
+      priority,
       status: assignedTo ? "Zugewiesen" : "Neu",
-      createdBy: currentUser.id,
+      createdBy: currentUserId,
       createdByName: currentUser.name,
-      assignedTo: assignedTo,
+      assignedTo,
       assignedToName: assignedUser?.name,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       materialRequired: false,
       materialStatus: "Nicht benötigt",
+      sapInformation: sapInfo,
       sapOrderNumber: sapItem.orderNumber,
       sapBasicStartDate: sapItem.basicStartDate,
       sapEquipment: sapItem.equipment,
       sapFunctionalLocation: sapItem.functionalLocation,
     };
 
-    addWorkOrder(newWorkOrder);
-    return newWorkOrder;
+    addWorkOrder(newWO);
+
+    // Notification wenn zugewiesen
+    if (assignedTo && assignedTo !== currentUserId) {
+      const notification: Notification = {
+        id: Math.max(...notifications.map((n) => n.id), 0) + 1,
+        userId: assignedTo,
+        type: "assignment",
+        workOrderId: newId,
+        workOrderTitle: newWO.title,
+        message: `${currentUser.name} hat dir einen neuen Work Order aus SAP zugewiesen`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        createdBy: currentUserId,
+        createdByName: currentUser.name,
+      };
+      addNotification(notification);
+    }
+
+    return newWO;
   };
 
-  // Project Functions
+  // ==========================================
+  // PROJECT FUNCTIONS
+  // ==========================================
+
   const addProject = (project: Project) => setProjects([...projects, project]);
   const updateProject = (updatedProject: Project) =>
     setProjects(
@@ -648,7 +727,10 @@ System Status: ${sapItem.systemStatus}
   const deleteProject = (id: number) =>
     setProjects(projects.filter((p) => p.id !== id));
 
-  // Reset
+  // ==========================================
+  // RESET FUNCTION
+  // ==========================================
+
   const resetAllData = () => {
     setUsers(INITIAL_USERS);
     setAssets(INITIAL_ASSETS);
@@ -658,6 +740,10 @@ System Status: ${sapItem.systemStatus}
     setSapMaintenanceItems(INITIAL_SAP_DATA);
     setProjects(INITIAL_PROJECTS);
   };
+
+  // ==========================================
+  // CONTEXT VALUE
+  // ==========================================
 
   const value: DataContextType = {
     users,
@@ -697,6 +783,10 @@ System Status: ${sapItem.systemStatus}
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
+
+// ==========================================
+// HOOK
+// ==========================================
 
 export function useData() {
   const context = useContext(DataContext);

@@ -99,6 +99,16 @@ export type MaterialStatus =
   | 'Bestellt'
   | 'Geliefert'
 
+export interface WorkOrderTask {
+  id: number
+  description: string
+  completed: boolean
+  completedBy?: number
+  completedByName?: string
+  completedAt?: string
+  required: boolean
+}
+
 export interface WorkOrder {
   id: number
   title: string
@@ -125,13 +135,13 @@ export interface WorkOrder {
   // Bilder
   images?: string[]
   // SAP Integration
+  sapInformation?: string
   sapOrderNumber?: string
   sapBasicStartDate?: string
   sapEquipment?: string
   sapFunctionalLocation?: string
   // Tasks
   tasks?: WorkOrderTask[]
-  
 }
 
 // ==========================================
@@ -158,7 +168,7 @@ export interface WorkOrderComment {
 export interface Notification {
   id: number
   userId: number
-  type: 'comment' | 'assignment' | 'status_change' | 'work_order_deleted';
+  type: 'comment' | 'assignment' | 'status_change' | 'work_order_deleted'
   workOrderId: number
   workOrderTitle: string
   message: string
@@ -174,30 +184,23 @@ export interface Notification {
 
 export interface SAPMaintenanceItem {
   id: string
-  orderType: 'PM01' | 'PM02'
-  mainWorkCenter: 'ELEC' | 'MECH'
+  orderType: string  // PM01, PM02, PM06, etc. - flexibel für alle Order Types
+  mainWorkCenter: string  // ELEC, MECH, SUP, TOP, TP-INSP, etc. - flexibel für alle Work Centers
   orderNumber: string
   description: string
   actualRelease: string
   basicStartDate: string // YYYY-MM-DD
   equipment: string
   descriptionDetail: string
+  descriptionExtra: string  // NEU - für die 3. Description-Spalte (Spalte I)
   functionalLocation: string
   systemStatus: string
-  asset: string // T207, T208, T700, T46
+  asset: string // T207, T208, T700, T46, etc.
 }
 
-export interface WorkOrderTask {
-  id: number
-  description: string
-  completed: boolean
-  completedBy?: number
-  completedByName?: string
-  completedAt?: string
-  required: boolean
-}
-
-// Füge diese Types zu src/types/index.ts hinzu:
+// ==========================================
+// PROJECT TYPES
+// ==========================================
 
 export type ProjectStatus = 
   | 'Geplant'
@@ -232,5 +235,3 @@ export interface Project {
   createdAt: string
   updatedAt: string
 }
-
-

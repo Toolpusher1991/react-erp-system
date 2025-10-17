@@ -1,4 +1,3 @@
-// src/pages/SAPPreventiveMaintenance.tsx
 import { useState } from "react";
 import * as XLSX from "xlsx";
 
@@ -24,8 +23,11 @@ interface RSCDocument {
   approvedBy: string;
   rigNumber: string;
   items: (MaintenanceItem & {
-    inspectionResult: string;
-    nextDueDate: string;
+    onSite: boolean;
+    photoUrl: string;
+    shippedDate: string;
+    shippedTo: string;
+    trackingInfo: string;
   })[];
 }
 
@@ -294,8 +296,11 @@ function SAPPreventiveMaintenance() {
       rigNumber: overdueItems[0]?.location || "",
       items: overdueItems.map((item) => ({
         ...item,
-        inspectionResult: "",
-        nextDueDate: "",
+        onSite: true,
+        photoUrl: "",
+        shippedDate: "",
+        shippedTo: "",
+        trackingInfo: "",
       })),
     };
 
@@ -314,7 +319,11 @@ function SAPPreventiveMaintenance() {
     );
   };
 
-  const updateItemField = (itemId: number, field: string, value: string) => {
+  const updateItemField = (
+    itemId: number,
+    field: string,
+    value: string | boolean
+  ) => {
     setRscDocument((prev) =>
       prev
         ? {
@@ -327,8 +336,69 @@ function SAPPreventiveMaintenance() {
     );
   };
 
+  const handlePhotoUpload = (
+    itemId: number,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const photoUrl = event.target?.result as string;
+      updateItemField(itemId, "photoUrl", photoUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const printRSCDocument = () => {
     window.print();
+  };
+
+  const sendRSCByEmail = () => {
+    if (!rscDocument) return;
+
+    const emailBody = `
+RSC INSPEKTIONSAUFTRAG
+Auftragsnummer: ${rscDocument.orderNumber}
+Datum: ${rscDocument.date}
+Rig/Standort: ${rscDocument.rigNumber}
+Erstellt von: ${rscDocument.createdBy}
+
+Anzahl Komponenten: ${rscDocument.items.length}
+Kritische Priorität: ${
+      rscDocument.items.filter((i) => i.priority === "Kritisch").length
+    }
+
+--- Komponenten ---
+${rscDocument.items
+  .map(
+    (item, idx) => `
+${idx + 1}. ${item.equipment}
+   Seriennummer: ${item.serialNumber}
+   Priorität: ${item.priority}
+   An Anlage: ${item.onSite ? "Ja" : "Nein"}
+   ${item.shippedDate ? `Versandt am: ${item.shippedDate}` : ""}
+   ${item.shippedTo ? `Versandt an: ${item.shippedTo}` : ""}
+`
+  )
+  .join("")}
+
+Bitte prüfen Sie die beigefügte Excel-Datei für vollständige Details.
+    `.trim();
+
+    const subject = `RSC Inspektionsauftrag ${rscDocument.orderNumber}`;
+    const mailtoLink = `mailto:?subject=${encodeURIComponent(
+      subject
+    )}&body=${encodeURIComponent(emailBody)}`;
+
+    window.location.href = mailtoLink;
+
+    setTimeout(() => {
+      alert(
+        "E-Mail-Client wurde geöffnet.\n\nHinweis: Dies ist eine temporäre Lösung. Bitte laden Sie zusätzlich die Excel-Datei herunter und fügen Sie diese als Anhang hinzu."
+      );
+    }, 500);
   };
 
   const downloadRSCAsExcel = () => {
@@ -351,9 +421,11 @@ function SAPPreventiveMaintenance() {
         "Letzte Inspektion",
         "Fällig seit",
         "Priorität",
+        "An Anlage",
+        "Versanddatum",
+        "Versandt an",
+        "Tracking",
         "Bemerkungen",
-        "Prüfergebnis",
-        "Nächste Fälligkeit",
       ],
       ...rscDocument.items.map((item, idx) => [
         idx + 1,
@@ -365,9 +437,11 @@ function SAPPreventiveMaintenance() {
           : "N/A",
         item.dueDate ? item.dueDate.toLocaleDateString("de-DE") : "N/A",
         item.priority,
+        item.onSite ? "Ja" : "Nein",
+        item.shippedDate,
+        item.shippedTo,
+        item.trackingInfo,
         item.remarks,
-        item.inspectionResult,
-        item.nextDueDate,
       ]),
     ];
 
@@ -381,9 +455,11 @@ function SAPPreventiveMaintenance() {
       { wch: 15 },
       { wch: 15 },
       { wch: 12 },
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 20 },
+      { wch: 20 },
       { wch: 30 },
-      { wch: 15 },
-      { wch: 15 },
     ];
 
     const wb = XLSX.utils.book_new();
@@ -422,22 +498,92 @@ function SAPPreventiveMaintenance() {
     );
   };
 
+  const clearAllData = () => {
+    if (window.confirm("Möchten Sie wirklich alle Daten löschen?")) {
+      setMaintenanceData([]);
+      setOverdueItems([]);
+      setFileName("");
+      setError("");
+      setShowRSCPreview(false);
+      setRscDocument(null);
+    }
+  };
+
   if (showRSCPreview && rscDocument) {
     return (
       <div
         style={{
           minHeight: "100vh",
-          background: "var(--gray-100)",
+          background: "#f3f4f6",
           padding: "1.5rem",
         }}
       >
+        <style>{`
+          @media print {
+            .print-hidden { display: none !important; }
+            .print-no-border input { border: none !important; background: transparent !important; }
+          }
+          
+          .pm-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            font-size: 0.875rem;
+          }
+          
+          .pm-table th {
+            background: #1e40af;
+            color: white;
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            border: 1px solid #1e3a8a;
+          }
+          
+          .pm-table td {
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+          }
+          
+          .pm-table tbody tr:hover {
+            background: #f9fafb;
+          }
+          
+          .priority-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+          }
+          
+          .priority-kritisch {
+            background: #fee2e2;
+            color: #991b1b;
+          }
+          
+          .priority-hoch {
+            background: #fed7aa;
+            color: #9a3412;
+          }
+          
+          .priority-mittel {
+            background: #fef3c7;
+            color: #92400e;
+          }
+          
+          .priority-normal {
+            background: #dbeafe;
+            color: #1e40af;
+          }
+        `}</style>
+
         <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
-          {/* Header Actions */}
           <div
             style={{
               background: "white",
               borderRadius: "12px",
-              boxShadow: "var(--shadow)",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
               padding: "1rem",
               marginBottom: "1.5rem",
               display: "flex",
@@ -450,7 +596,7 @@ function SAPPreventiveMaintenance() {
               onClick={() => setShowRSCPreview(false)}
               style={{
                 padding: "0.5rem 1rem",
-                color: "var(--gray-600)",
+                color: "#4b5563",
                 background: "transparent",
                 border: "none",
                 fontWeight: "600",
@@ -461,12 +607,29 @@ function SAPPreventiveMaintenance() {
             </button>
             <div style={{ display: "flex", gap: "0.75rem" }}>
               <button
+                onClick={sendRSCByEmail}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  background: "#1e40af",
+                  color: "white",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "none",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                📧 Per E-Mail senden
+              </button>
+              <button
                 onClick={downloadRSCAsExcel}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: "0.5rem",
-                  background: "var(--success)",
+                  background: "#10b981",
                   color: "white",
                   padding: "0.5rem 1rem",
                   borderRadius: "8px",
@@ -483,7 +646,7 @@ function SAPPreventiveMaintenance() {
                   display: "flex",
                   alignItems: "center",
                   gap: "0.5rem",
-                  background: "var(--primary)",
+                  background: "#4b5563",
                   color: "white",
                   padding: "0.5rem 1rem",
                   borderRadius: "8px",
@@ -497,19 +660,17 @@ function SAPPreventiveMaintenance() {
             </div>
           </div>
 
-          {/* RSC Document */}
           <div
             style={{
               background: "white",
               borderRadius: "12px",
-              boxShadow: "var(--shadow)",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
               padding: "2rem",
             }}
           >
-            {/* Header */}
             <div
               style={{
-                borderBottom: "4px solid var(--primary)",
+                borderBottom: "4px solid #1e40af",
                 paddingBottom: "1.5rem",
                 marginBottom: "1.5rem",
               }}
@@ -531,7 +692,7 @@ function SAPPreventiveMaintenance() {
                   >
                     RSC INSPEKTIONSAUFTRAG
                   </h1>
-                  <p style={{ color: "var(--gray-600)", margin: 0 }}>
+                  <p style={{ color: "#6b7280", margin: 0 }}>
                     Preventive Maintenance - Zertifizierung
                   </p>
                 </div>
@@ -546,7 +707,7 @@ function SAPPreventiveMaintenance() {
                   <p
                     style={{
                       fontSize: "0.75rem",
-                      color: "var(--gray-600)",
+                      color: "#6b7280",
                       margin: 0,
                     }}
                   >
@@ -556,7 +717,7 @@ function SAPPreventiveMaintenance() {
                     style={{
                       fontSize: "1.25rem",
                       fontWeight: "900",
-                      color: "var(--primary)",
+                      color: "#1e40af",
                       margin: 0,
                     }}
                   >
@@ -566,7 +727,6 @@ function SAPPreventiveMaintenance() {
               </div>
             </div>
 
-            {/* Document Info */}
             <div
               style={{
                 display: "grid",
@@ -581,7 +741,7 @@ function SAPPreventiveMaintenance() {
                     display: "block",
                     fontSize: "0.875rem",
                     fontWeight: "600",
-                    color: "var(--gray-700)",
+                    color: "#374151",
                     marginBottom: "0.5rem",
                   }}
                 >
@@ -594,7 +754,7 @@ function SAPPreventiveMaintenance() {
                   style={{
                     width: "100%",
                     padding: "0.75rem",
-                    border: "2px solid var(--gray-200)",
+                    border: "2px solid #e5e7eb",
                     borderRadius: "8px",
                     fontSize: "0.9375rem",
                   }}
@@ -607,7 +767,7 @@ function SAPPreventiveMaintenance() {
                     display: "block",
                     fontSize: "0.875rem",
                     fontWeight: "600",
-                    color: "var(--gray-700)",
+                    color: "#374151",
                     marginBottom: "0.5rem",
                   }}
                 >
@@ -620,7 +780,7 @@ function SAPPreventiveMaintenance() {
                   style={{
                     width: "100%",
                     padding: "0.75rem",
-                    border: "2px solid var(--gray-200)",
+                    border: "2px solid #e5e7eb",
                     borderRadius: "8px",
                     fontSize: "0.9375rem",
                   }}
@@ -633,7 +793,7 @@ function SAPPreventiveMaintenance() {
                     display: "block",
                     fontSize: "0.875rem",
                     fontWeight: "600",
-                    color: "var(--gray-700)",
+                    color: "#374151",
                     marginBottom: "0.5rem",
                   }}
                 >
@@ -647,7 +807,7 @@ function SAPPreventiveMaintenance() {
                   style={{
                     width: "100%",
                     padding: "0.75rem",
-                    border: "2px solid var(--gray-200)",
+                    border: "2px solid #e5e7eb",
                     borderRadius: "8px",
                     fontSize: "0.9375rem",
                   }}
@@ -660,7 +820,7 @@ function SAPPreventiveMaintenance() {
                     display: "block",
                     fontSize: "0.875rem",
                     fontWeight: "600",
-                    color: "var(--gray-700)",
+                    color: "#374151",
                     marginBottom: "0.5rem",
                   }}
                 >
@@ -674,7 +834,7 @@ function SAPPreventiveMaintenance() {
                   style={{
                     width: "100%",
                     padding: "0.75rem",
-                    border: "2px solid var(--gray-200)",
+                    border: "2px solid #e5e7eb",
                     borderRadius: "8px",
                     fontSize: "0.9375rem",
                   }}
@@ -683,7 +843,6 @@ function SAPPreventiveMaintenance() {
               </div>
             </div>
 
-            {/* Items Summary */}
             <div
               style={{
                 background: "#EEF2FF",
@@ -699,7 +858,7 @@ function SAPPreventiveMaintenance() {
                 <p
                   style={{
                     fontSize: "0.875rem",
-                    color: "var(--gray-600)",
+                    color: "#6b7280",
                     margin: 0,
                   }}
                 >
@@ -709,7 +868,7 @@ function SAPPreventiveMaintenance() {
                   style={{
                     fontSize: "1.5rem",
                     fontWeight: "900",
-                    color: "var(--primary)",
+                    color: "#1e40af",
                     margin: 0,
                   }}
                 >
@@ -720,7 +879,7 @@ function SAPPreventiveMaintenance() {
                 <p
                   style={{
                     fontSize: "0.875rem",
-                    color: "var(--gray-600)",
+                    color: "#6b7280",
                     margin: 0,
                   }}
                 >
@@ -730,7 +889,7 @@ function SAPPreventiveMaintenance() {
                   style={{
                     fontSize: "1.5rem",
                     fontWeight: "900",
-                    color: "var(--danger)",
+                    color: "#dc2626",
                     margin: 0,
                   }}
                 >
@@ -742,7 +901,6 @@ function SAPPreventiveMaintenance() {
               </div>
             </div>
 
-            {/* Items Table */}
             <div style={{ marginBottom: "2rem" }}>
               <h2
                 style={{
@@ -761,10 +919,10 @@ function SAPPreventiveMaintenance() {
                       <th>Equipment</th>
                       <th>Seriennummer</th>
                       <th>Zertifizierung</th>
-                      <th>Letzte Inspektion</th>
                       <th>Fällig seit</th>
                       <th>Priorität</th>
-                      <th className="print-hidden">Bemerkungen</th>
+                      <th>An Anlage</th>
+                      <th className="print-hidden">Foto</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -774,14 +932,7 @@ function SAPPreventiveMaintenance() {
                         <td style={{ fontWeight: "600" }}>{item.equipment}</td>
                         <td>{item.serialNumber}</td>
                         <td>{item.certificationType}</td>
-                        <td>
-                          {item.lastInspection
-                            ? item.lastInspection.toLocaleDateString("de-DE")
-                            : "N/A"}
-                        </td>
-                        <td
-                          style={{ color: "var(--danger)", fontWeight: "600" }}
-                        >
+                        <td style={{ color: "#dc2626", fontWeight: "600" }}>
                           {item.dueDate
                             ? item.dueDate.toLocaleDateString("de-DE")
                             : "N/A"}
@@ -793,26 +944,86 @@ function SAPPreventiveMaintenance() {
                             {item.priority}
                           </span>
                         </td>
-                        <td className="print-hidden">
-                          <input
-                            type="text"
-                            value={item.remarks}
-                            onChange={(e) =>
-                              updateItemField(
-                                item.id,
-                                "remarks",
-                                e.target.value
-                              )
-                            }
-                            placeholder="Bemerkungen..."
+                        <td>
+                          <label
                             style={{
-                              width: "100%",
-                              padding: "0.5rem",
-                              border: "1px solid var(--gray-200)",
-                              borderRadius: "4px",
-                              fontSize: "0.875rem",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "0.5rem",
+                              cursor: "pointer",
                             }}
-                          />
+                          >
+                            <input
+                              type="checkbox"
+                              checked={item.onSite}
+                              onChange={(e) =>
+                                updateItemField(
+                                  item.id,
+                                  "onSite",
+                                  e.target.checked
+                                )
+                              }
+                              style={{ width: "18px", height: "18px" }}
+                            />
+                            <span>{item.onSite ? "✅ Ja" : "❌ Nein"}</span>
+                          </label>
+                        </td>
+                        <td className="print-hidden">
+                          {item.photoUrl ? (
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.5rem",
+                              }}
+                            >
+                              <img
+                                src={item.photoUrl}
+                                alt="Component"
+                                style={{
+                                  width: "40px",
+                                  height: "40px",
+                                  objectFit: "cover",
+                                  borderRadius: "4px",
+                                }}
+                              />
+                              <button
+                                onClick={() =>
+                                  updateItemField(item.id, "photoUrl", "")
+                                }
+                                style={{
+                                  padding: "0.25rem 0.5rem",
+                                  background: "#dc2626",
+                                  color: "white",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  fontSize: "0.75rem",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <label
+                              style={{
+                                padding: "0.25rem 0.75rem",
+                                background: "#e5e7eb",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "0.875rem",
+                                display: "inline-block",
+                              }}
+                            >
+                              📷 Upload
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handlePhotoUpload(item.id, e)}
+                                style={{ display: "none" }}
+                              />
+                            </label>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -821,10 +1032,9 @@ function SAPPreventiveMaintenance() {
               </div>
             </div>
 
-            {/* RSC Feedback */}
             <div
               style={{
-                borderTop: "2px solid var(--gray-300)",
+                borderTop: "2px solid #d1d5db",
                 paddingTop: "1.5rem",
                 marginBottom: "2rem",
               }}
@@ -836,7 +1046,7 @@ function SAPPreventiveMaintenance() {
                   marginBottom: "1rem",
                 }}
               >
-                RSC Rückmeldung (Optional)
+                Versandinformationen
               </h2>
               <div style={{ overflowX: "auto" }}>
                 <table className="pm-table">
@@ -844,9 +1054,10 @@ function SAPPreventiveMaintenance() {
                     <tr>
                       <th>Nr.</th>
                       <th>Equipment</th>
-                      <th>Prüfergebnis</th>
-                      <th>Nächste Fälligkeit</th>
-                      <th>Bemerkungen RSC</th>
+                      <th>Versanddatum</th>
+                      <th>Versandt an</th>
+                      <th>Tracking Info</th>
+                      <th>Bemerkungen</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -856,20 +1067,19 @@ function SAPPreventiveMaintenance() {
                         <td style={{ fontWeight: "600" }}>{item.equipment}</td>
                         <td>
                           <input
-                            type="text"
-                            value={item.inspectionResult}
+                            type="date"
+                            value={item.shippedDate}
                             onChange={(e) =>
                               updateItemField(
                                 item.id,
-                                "inspectionResult",
+                                "shippedDate",
                                 e.target.value
                               )
                             }
-                            placeholder="OK / Mangelhaft..."
                             style={{
                               width: "100%",
                               padding: "0.5rem",
-                              border: "1px solid var(--gray-200)",
+                              border: "1px solid #e5e7eb",
                               borderRadius: "4px",
                               fontSize: "0.875rem",
                             }}
@@ -879,19 +1089,41 @@ function SAPPreventiveMaintenance() {
                         <td>
                           <input
                             type="text"
-                            value={item.nextDueDate}
+                            value={item.shippedTo}
                             onChange={(e) =>
                               updateItemField(
                                 item.id,
-                                "nextDueDate",
+                                "shippedTo",
                                 e.target.value
                               )
                             }
-                            placeholder="TT.MM.JJJJ"
+                            placeholder="RSC Standort..."
                             style={{
                               width: "100%",
                               padding: "0.5rem",
-                              border: "1px solid var(--gray-200)",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: "4px",
+                              fontSize: "0.875rem",
+                            }}
+                            className="print-no-border"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            value={item.trackingInfo}
+                            onChange={(e) =>
+                              updateItemField(
+                                item.id,
+                                "trackingInfo",
+                                e.target.value
+                              )
+                            }
+                            placeholder="Tracking-Nr..."
+                            style={{
+                              width: "100%",
+                              padding: "0.5rem",
+                              border: "1px solid #e5e7eb",
                               borderRadius: "4px",
                               fontSize: "0.875rem",
                             }}
@@ -913,7 +1145,7 @@ function SAPPreventiveMaintenance() {
                             style={{
                               width: "100%",
                               padding: "0.5rem",
-                              border: "1px solid var(--gray-200)",
+                              border: "1px solid #e5e7eb",
                               borderRadius: "4px",
                               fontSize: "0.875rem",
                             }}
@@ -927,7 +1159,6 @@ function SAPPreventiveMaintenance() {
               </div>
             </div>
 
-            {/* Signatures */}
             <div
               style={{
                 display: "grid",
@@ -935,7 +1166,7 @@ function SAPPreventiveMaintenance() {
                 gap: "2rem",
                 marginTop: "3rem",
                 paddingTop: "2rem",
-                borderTop: "2px solid var(--gray-300)",
+                borderTop: "2px solid #d1d5db",
               }}
             >
               <div>
@@ -950,17 +1181,17 @@ function SAPPreventiveMaintenance() {
                 </p>
                 <div
                   style={{
-                    borderTop: "2px solid var(--gray-400)",
+                    borderTop: "2px solid #6b7280",
                     paddingTop: "0.5rem",
                   }}
                 >
-                  <p style={{ fontSize: "0.875rem", color: "var(--gray-600)" }}>
+                  <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
                     {rscDocument.createdBy || "____________________"}
                   </p>
                   <p
                     style={{
                       fontSize: "0.75rem",
-                      color: "var(--gray-500)",
+                      color: "#9ca3af",
                       marginTop: "0.25rem",
                     }}
                   >
@@ -980,17 +1211,17 @@ function SAPPreventiveMaintenance() {
                 </p>
                 <div
                   style={{
-                    borderTop: "2px solid var(--gray-400)",
+                    borderTop: "2px solid #6b7280",
                     paddingTop: "0.5rem",
                   }}
                 >
-                  <p style={{ fontSize: "0.875rem", color: "var(--gray-600)" }}>
+                  <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
                     {rscDocument.approvedBy || "____________________"}
                   </p>
                   <p
                     style={{
                       fontSize: "0.75rem",
-                      color: "var(--gray-500)",
+                      color: "#9ca3af",
                       marginTop: "0.25rem",
                     }}
                   >
@@ -1000,16 +1231,15 @@ function SAPPreventiveMaintenance() {
               </div>
             </div>
 
-            {/* Footer */}
             <div
               style={{
                 marginTop: "2rem",
                 paddingTop: "1rem",
-                borderTop: "1px solid var(--gray-300)",
+                borderTop: "1px solid #d1d5db",
                 textAlign: "center",
               }}
             >
-              <p style={{ fontSize: "0.75rem", color: "var(--gray-500)" }}>
+              <p style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
                 Dokument erstellt am: {new Date().toLocaleString("de-DE")} |
                 Auftragsnummer: {rscDocument.orderNumber}
               </p>
@@ -1021,199 +1251,506 @@ function SAPPreventiveMaintenance() {
   }
 
   return (
-    <div className="pm-container">
-      <h1>📋 SAP Preventive Maintenance</h1>
+    <div style={{ minHeight: "100vh", background: "#f3f4f6", padding: "2rem" }}>
+      <style>{`
+        .pm-container {
+          max-width: 1400px;
+          margin: 0 auto;
+        }
+        
+        .pm-section {
+          background: white;
+          border-radius: 12px;
+          padding: 1.5rem;
+          margin-bottom: 1.5rem;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .pm-upload-area {
+          border: 3px dashed #d1d5db;
+          border-radius: 12px;
+          padding: 2rem;
+          text-align: center;
+          margin-bottom: 1rem;
+          transition: all 0.3s;
+        }
+        
+        .pm-upload-area:hover {
+          border-color: #1e40af;
+          background: #f9fafb;
+        }
+        
+        .pm-file-input {
+          display: none;
+        }
+        
+        .pm-upload-label {
+          cursor: pointer;
+        }
+        
+        .pm-upload-icon {
+          font-size: 3rem;
+          margin-bottom: 1rem;
+        }
+        
+        .pm-upload-hint {
+          color: #9ca3af;
+          font-size: 0.875rem;
+        }
+        
+        .pm-filename {
+          margin-top: 1rem;
+          font-weight: 600;
+          color: #1e40af;
+        }
+        
+        .pm-sample-btn {
+          width: 100%;
+          padding: 0.75rem;
+          background: #1e40af;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.3s;
+        }
+        
+        .pm-sample-btn:hover {
+          background: #1e3a8a;
+        }
+        
+        .pm-error {
+          background: #fee2e2;
+          color: #991b1b;
+          padding: 1rem;
+          border-radius: 8px;
+          margin-top: 1rem;
+        }
+        
+        .pm-stats {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+        }
+        
+        .pm-stat-card {
+          background: white;
+          border-radius: 12px;
+          padding: 1.5rem;
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .pm-stat-card.overdue {
+          background: #fef3c7;
+        }
+        
+        .pm-stat-card.critical {
+          background: #fee2e2;
+        }
+        
+        .pm-stat-card.ok {
+          background: #d1fae5;
+        }
+        
+        .pm-stat-icon {
+          font-size: 2rem;
+        }
+        
+        .pm-stat-number {
+          font-size: 2rem;
+          font-weight: 900;
+          margin: 0;
+        }
+        
+        .pm-actions {
+          background: white;
+          border-radius: 12px;
+          padding: 1.5rem;
+          margin-bottom: 1.5rem;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .pm-action-buttons {
+          display: flex;
+          gap: 1rem;
+          flex-wrap: wrap;
+        }
+        
+        .pm-action-btn {
+          padding: 0.75rem 1.5rem;
+          border: none;
+          border-radius: 8px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s;
+        }
+        
+        .pm-action-btn.primary {
+          background: #1e40af;
+          color: white;
+        }
+        
+        .pm-action-btn.primary:hover {
+          background: #1e3a8a;
+        }
+        
+        .pm-action-btn.success {
+          background: #10b981;
+          color: white;
+        }
+        
+        .pm-action-btn.success:hover {
+          background: #059669;
+        }
+        
+        .pm-table-container {
+          overflow-x: auto;
+        }
+        
+        .pm-table {
+          width: 100%;
+          border-collapse: collapse;
+          background: white;
+        }
+        
+        .pm-table th {
+          background: #1e40af;
+          color: white;
+          padding: 0.75rem;
+          text-align: left;
+          font-weight: 600;
+          border: 1px solid #1e3a8a;
+        }
+        
+        .pm-table td {
+          padding: 0.75rem;
+          border: 1px solid #e5e7eb;
+        }
+        
+        .pm-table tbody tr:hover {
+          background: #f9fafb;
+        }
+        
+        .equipment-name {
+          font-weight: 600;
+          color: #1f2937;
+        }
+        
+        .overdue-row {
+          background: #fef3c7;
+        }
+        
+        .overdue-date {
+          color: #dc2626;
+          font-weight: 600;
+        }
+        
+        .priority-badge {
+          padding: 0.25rem 0.75rem;
+          border-radius: 12px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          display: inline-block;
+        }
+        
+        .priority-kritisch {
+          background: #fee2e2;
+          color: #991b1b;
+        }
+        
+        .priority-hoch {
+          background: #fed7aa;
+          color: #9a3412;
+        }
+        
+        .priority-mittel {
+          background: #fef3c7;
+          color: #92400e;
+        }
+        
+        .priority-normal {
+          background: #dbeafe;
+          color: #1e40af;
+        }
+        
+        .status-badge {
+          padding: 0.25rem 0.75rem;
+          border-radius: 12px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          display: inline-block;
+        }
+        
+        .status-overdue {
+          background: #fee2e2;
+          color: #991b1b;
+        }
+        
+        .status-ok {
+          background: #d1fae5;
+          color: #065f46;
+        }
+        
+        h1 {
+          font-size: 2rem;
+          font-weight: 900;
+          margin-bottom: 1.5rem;
+          color: #1f2937;
+        }
+        
+        h2 {
+          font-size: 1.25rem;
+          font-weight: 700;
+          margin-bottom: 1rem;
+          color: #1f2937;
+        }
+      `}</style>
 
-      {/* Upload Section */}
-      <div className="pm-section">
-        <h2>📤 SAP Excel Datei hochladen</h2>
+      <div className="pm-container">
+        <h1>📋 SAP Preventive Maintenance</h1>
 
-        <div className="pm-upload-area">
-          <input
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleFileUpload}
-            className="pm-file-input"
-            id="file-upload"
-          />
-          <label htmlFor="file-upload" className="pm-upload-label">
-            <div className="pm-upload-icon">📁</div>
-            <p>Klicken um SAP Excel Datei auszuwählen</p>
-            <p className="pm-upload-hint">oder Datei hier ablegen</p>
-          </label>
-          {fileName && <p className="pm-filename">📄 {fileName}</p>}
+        <div className="pm-section">
+          <h2>📤 SAP Excel Datei hochladen</h2>
+
+          <div className="pm-upload-area">
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileUpload}
+              className="pm-file-input"
+              id="file-upload"
+            />
+            <label htmlFor="file-upload" className="pm-upload-label">
+              <div className="pm-upload-icon">📁</div>
+              <p>Klicken um SAP Excel Datei auszuwählen</p>
+              <p className="pm-upload-hint">oder Datei hier ablegen</p>
+            </label>
+            {fileName && <p className="pm-filename">📄 {fileName}</p>}
+          </div>
+
+          <button onClick={loadSampleData} className="pm-sample-btn">
+            📊 Beispieldaten laden (Demo)
+          </button>
+
+          {error && <div className="pm-error">⚠️ {error}</div>}
         </div>
 
-        <button onClick={loadSampleData} className="pm-sample-btn">
-          📊 Beispieldaten laden (Demo)
-        </button>
-
-        {error && <div className="pm-error">⚠️ {error}</div>}
-      </div>
-
-      {/* Statistics */}
-      {maintenanceData.length > 0 && (
-        <div className="pm-stats">
-          <div className="pm-stat-card">
-            <div className="pm-stat-icon">📄</div>
-            <div>
-              <p>Gesamt</p>
-              <p className="pm-stat-number">{maintenanceData.length}</p>
-            </div>
-          </div>
-
-          <div className="pm-stat-card overdue">
-            <div className="pm-stat-icon">⚠️</div>
-            <div>
-              <p>Überfällig</p>
-              <p className="pm-stat-number">{overdueItems.length}</p>
-            </div>
-          </div>
-
-          <div className="pm-stat-card critical">
-            <div className="pm-stat-icon">🚨</div>
-            <div>
-              <p>Kritisch</p>
-              <p className="pm-stat-number">
-                {overdueItems.filter((i) => i.priority === "Kritisch").length}
-              </p>
-            </div>
-          </div>
-
-          <div className="pm-stat-card ok">
-            <div className="pm-stat-icon">✅</div>
-            <div>
-              <p>In Ordnung</p>
-              <p className="pm-stat-number">
-                {maintenanceData.length - overdueItems.length}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Actions */}
-      {overdueItems.length > 0 && (
-        <div className="pm-actions">
-          <h2>⚡ Aktionen</h2>
-          <div className="pm-action-buttons">
-            <button
-              onClick={generateRSCDocument}
-              className="pm-action-btn primary"
+        {maintenanceData.length > 0 && (
+          <div
+            className="pm-section"
+            style={{ background: "#fee2e2", border: "2px solid #dc2626" }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
             >
-              📄 RSC Dokument erstellen
-            </button>
-            <button onClick={exportToExcel} className="pm-action-btn success">
-              📥 Excel Export (Überfällig)
-            </button>
+              <div>
+                <h2 style={{ color: "#991b1b", margin: 0 }}>
+                  🗑️ Alle Daten löschen
+                </h2>
+                <p
+                  style={{
+                    color: "#7f1d1d",
+                    fontSize: "0.875rem",
+                    margin: "0.5rem 0 0 0",
+                  }}
+                >
+                  Löscht alle geladenen Daten und setzt die Anwendung zurück
+                </p>
+              </div>
+              <button
+                onClick={clearAllData}
+                style={{
+                  padding: "0.75rem 1.5rem",
+                  background: "#dc2626",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  transition: "background 0.3s",
+                }}
+                onMouseOver={(e) =>
+                  (e.currentTarget.style.background = "#b91c1c")
+                }
+                onMouseOut={(e) =>
+                  (e.currentTarget.style.background = "#dc2626")
+                }
+              >
+                🗑️ Liste leeren
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Overdue Items Table */}
-      {overdueItems.length > 0 && (
-        <div className="pm-section">
-          <h2>⚠️ Überfällige Inspektionen ({overdueItems.length})</h2>
-          <div className="pm-table-container">
-            <table className="pm-table">
-              <thead>
-                <tr>
-                  <th>Nr.</th>
-                  <th>Equipment</th>
-                  <th>Seriennummer</th>
-                  <th>Zertifizierung</th>
-                  <th>Letzte Inspektion</th>
-                  <th>Fällig seit</th>
-                  <th>Priorität</th>
-                  <th>Standort</th>
-                </tr>
-              </thead>
-              <tbody>
-                {overdueItems.map((item) => (
-                  <tr key={item.id} className="overdue-row">
-                    <td>{item.id}</td>
-                    <td className="equipment-name">{item.equipment}</td>
-                    <td>{item.serialNumber}</td>
-                    <td>{item.certificationType}</td>
-                    <td>
-                      {item.lastInspection
-                        ? item.lastInspection.toLocaleDateString("de-DE")
-                        : "N/A"}
-                    </td>
-                    <td className="overdue-date">
-                      {item.dueDate
-                        ? item.dueDate.toLocaleDateString("de-DE")
-                        : "N/A"}
-                    </td>
-                    <td>
-                      <span
-                        className={`priority-badge priority-${item.priority.toLowerCase()}`}
-                      >
-                        {item.priority}
-                      </span>
-                    </td>
-                    <td>{item.location}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+        {maintenanceData.length > 0 && (
+          <div className="pm-stats">
+            <div className="pm-stat-card">
+              <div className="pm-stat-icon">📄</div>
+              <div>
+                <p>Gesamt</p>
+                <p className="pm-stat-number">{maintenanceData.length}</p>
+              </div>
+            </div>
 
-      {/* All Items Table */}
-      {maintenanceData.length > 0 && (
-        <div className="pm-section">
-          <h2>📋 Alle Komponenten ({maintenanceData.length})</h2>
-          <div className="pm-table-container">
-            <table className="pm-table">
-              <thead>
-                <tr>
-                  <th>Nr.</th>
-                  <th>Equipment</th>
-                  <th>Seriennummer</th>
-                  <th>Fälligkeitsdatum</th>
-                  <th>Priorität</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {maintenanceData.map((item) => (
-                  <tr
-                    key={item.id}
-                    className={item.isOverdue ? "overdue-row" : ""}
-                  >
-                    <td>{item.id}</td>
-                    <td className="equipment-name">{item.equipment}</td>
-                    <td>{item.serialNumber}</td>
-                    <td>
-                      {item.dueDate
-                        ? item.dueDate.toLocaleDateString("de-DE")
-                        : "N/A"}
-                    </td>
-                    <td>
-                      <span
-                        className={`priority-badge priority-${item.priority.toLowerCase()}`}
-                      >
-                        {item.priority}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        className={`status-badge status-${
-                          item.isOverdue ? "overdue" : "ok"
-                        }`}
-                      >
-                        {item.isOverdue ? "⚠️" : "✅"} {item.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="pm-stat-card overdue">
+              <div className="pm-stat-icon">⚠️</div>
+              <div>
+                <p>Überfällig</p>
+                <p className="pm-stat-number">{overdueItems.length}</p>
+              </div>
+            </div>
+
+            <div className="pm-stat-card critical">
+              <div className="pm-stat-icon">🚨</div>
+              <div>
+                <p>Kritisch</p>
+                <p className="pm-stat-number">
+                  {overdueItems.filter((i) => i.priority === "Kritisch").length}
+                </p>
+              </div>
+            </div>
+
+            <div className="pm-stat-card ok">
+              <div className="pm-stat-icon">✅</div>
+              <div>
+                <p>In Ordnung</p>
+                <p className="pm-stat-number">
+                  {maintenanceData.length - overdueItems.length}
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {overdueItems.length > 0 && (
+          <div className="pm-actions">
+            <h2>⚡ Aktionen</h2>
+            <div className="pm-action-buttons">
+              <button
+                onClick={generateRSCDocument}
+                className="pm-action-btn primary"
+              >
+                📄 RSC Dokument erstellen
+              </button>
+              <button onClick={exportToExcel} className="pm-action-btn success">
+                📥 Excel Export (Überfällig)
+              </button>
+            </div>
+          </div>
+        )}
+
+        {overdueItems.length > 0 && (
+          <div className="pm-section">
+            <h2>⚠️ Überfällige Inspektionen ({overdueItems.length})</h2>
+            <div className="pm-table-container">
+              <table className="pm-table">
+                <thead>
+                  <tr>
+                    <th>Nr.</th>
+                    <th>Equipment</th>
+                    <th>Seriennummer</th>
+                    <th>Zertifizierung</th>
+                    <th>Letzte Inspektion</th>
+                    <th>Fällig seit</th>
+                    <th>Priorität</th>
+                    <th>Standort</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {overdueItems.map((item) => (
+                    <tr key={item.id} className="overdue-row">
+                      <td>{item.id}</td>
+                      <td className="equipment-name">{item.equipment}</td>
+                      <td>{item.serialNumber}</td>
+                      <td>{item.certificationType}</td>
+                      <td>
+                        {item.lastInspection
+                          ? item.lastInspection.toLocaleDateString("de-DE")
+                          : "N/A"}
+                      </td>
+                      <td className="overdue-date">
+                        {item.dueDate
+                          ? item.dueDate.toLocaleDateString("de-DE")
+                          : "N/A"}
+                      </td>
+                      <td>
+                        <span
+                          className={`priority-badge priority-${item.priority.toLowerCase()}`}
+                        >
+                          {item.priority}
+                        </span>
+                      </td>
+                      <td>{item.location}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {maintenanceData.length > 0 && (
+          <div className="pm-section">
+            <h2>📋 Alle Komponenten ({maintenanceData.length})</h2>
+            <div className="pm-table-container">
+              <table className="pm-table">
+                <thead>
+                  <tr>
+                    <th>Nr.</th>
+                    <th>Equipment</th>
+                    <th>Seriennummer</th>
+                    <th>Fälligkeitsdatum</th>
+                    <th>Priorität</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {maintenanceData.map((item) => (
+                    <tr
+                      key={item.id}
+                      className={item.isOverdue ? "overdue-row" : ""}
+                    >
+                      <td>{item.id}</td>
+                      <td className="equipment-name">{item.equipment}</td>
+                      <td>{item.serialNumber}</td>
+                      <td>
+                        {item.dueDate
+                          ? item.dueDate.toLocaleDateString("de-DE")
+                          : "N/A"}
+                      </td>
+                      <td>
+                        <span
+                          className={`priority-badge priority-${item.priority.toLowerCase()}`}
+                        >
+                          {item.priority}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`status-badge status-${
+                            item.isOverdue ? "overdue" : "ok"
+                          }`}
+                        >
+                          {item.isOverdue ? "⚠️" : "✅"} {item.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

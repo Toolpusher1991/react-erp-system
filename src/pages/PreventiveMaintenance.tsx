@@ -4,7 +4,7 @@ import { useData } from "../contexts/DataContext";
 import type { SAPMaintenanceItem } from "../types";
 import * as XLSX from "xlsx";
 
-type TabType = "pm01-elec" | "pm01-mech" | "pm02-elec" | "pm02-mech";
+type TabType = string;
 
 function PreventiveMaintenance() {
   const {
@@ -17,8 +17,8 @@ function PreventiveMaintenance() {
   } = useData();
   const { currentUser, permissions } = useAuth();
 
-  const [selectedAsset, setSelectedAsset] = useState<string>("T207");
-  const [selectedTab, setSelectedTab] = useState<TabType>("pm02-elec");
+  const [selectedAsset, setSelectedAsset] = useState<string>("");
+  const [selectedTab, setSelectedTab] = useState<TabType>("");
   const [selectedItem, setSelectedItem] = useState<SAPMaintenanceItem | null>(
     null
   );
@@ -26,8 +26,20 @@ function PreventiveMaintenance() {
   const [assignedTo, setAssignedTo] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(false);
 
-  // Verfügbare Anlagen
-  const assets = ["T207", "T208", "T700", "T46"];
+  // Dynamische Anlagen aus Daten extrahieren
+  const assets = Array.from(
+    new Set(sapMaintenanceItems.map((item) => item.asset))
+  ).sort();
+
+  // Dynamische Work Centers aus Daten extrahieren
+  const workCenters = Array.from(
+    new Set(sapMaintenanceItems.map((item) => item.mainWorkCenter))
+  ).sort();
+
+  // Dynamische Order Types aus Daten extrahieren
+  const orderTypes = Array.from(
+    new Set(sapMaintenanceItems.map((item) => item.orderType))
+  ).sort();
 
   // Verfügbare Techniker für Zuweisung
   const availableUsers = users.filter(
@@ -60,10 +72,10 @@ function PreventiveMaintenance() {
       rows.forEach((row, idx) => {
         if (!row[0] || !row[1]) return;
 
-        // Extrahiere Asset aus Functional Location (Spalte K / Index 10)
-        const functionalLoc = String(row[10] || "");
+        // Extrahiere Asset aus Functional Location (Spalte J / Index 9)
+        const functionalLoc = String(row[9] || "");
         const assetMatch = functionalLoc.match(/T0?(\d+)/);
-        const asset = assetMatch ? `T${assetMatch[1]}` : "T207";
+        const asset = assetMatch ? `T${assetMatch[1]}` : "Unknown";
 
         // Parse Basic Start Date (Spalte F / Index 5)
         let basicStartDate = "";
@@ -72,7 +84,6 @@ function PreventiveMaintenance() {
           if (dateValue instanceof Date) {
             basicStartDate = dateValue.toISOString().split("T")[0];
           } else if (typeof dateValue === "string") {
-            // Parse DD.MM.YYYY format
             const parts = dateValue.split(".");
             if (parts.length === 3) {
               basicStartDate = `${parts[2]}-${parts[1].padStart(
@@ -80,7 +91,6 @@ function PreventiveMaintenance() {
                 "0"
               )}-${parts[0].padStart(2, "0")}`;
             } else {
-              // Try ISO format
               basicStartDate = dateValue;
             }
           }
@@ -88,16 +98,17 @@ function PreventiveMaintenance() {
 
         const item: SAPMaintenanceItem = {
           id: `sap-${idx}-${Date.now()}`,
-          orderType: row[0] as "PM01" | "PM02",
-          mainWorkCenter: row[1] as "ELEC" | "MECH",
+          orderType: String(row[0] || ""),
+          mainWorkCenter: String(row[1] || ""),
           orderNumber: String(row[2] || ""),
           description: String(row[3] || ""),
           actualRelease: row[4] ? String(row[4]) : "",
           basicStartDate: basicStartDate,
           equipment: String(row[6] || ""),
           descriptionDetail: String(row[7] || ""),
+          descriptionExtra: String(row[8] || ""),
           functionalLocation: functionalLoc,
-          systemStatus: String(row[11] || ""),
+          systemStatus: String(row[10] || ""),
           asset: asset,
         };
 
@@ -105,6 +116,23 @@ function PreventiveMaintenance() {
       });
 
       addSAPMaintenanceItems(parsed);
+
+      // Automatisch erste Anlage und ersten Tab auswählen
+      if (parsed.length > 0) {
+        const firstAsset = Array.from(
+          new Set(parsed.map((i) => i.asset))
+        ).sort()[0];
+        setSelectedAsset(firstAsset);
+
+        // Finde erste Kombination die Daten hat
+        const assetItems = parsed.filter((i) => i.asset === firstAsset);
+        if (assetItems.length > 0) {
+          const firstWC = assetItems[0].mainWorkCenter;
+          const firstOT = assetItems[0].orderType;
+          setSelectedTab(`${firstOT}-${firstWC}`);
+        }
+      }
+
       setLoading(false);
       alert(`✅ ${parsed.length} SAP-Einträge erfolgreich importiert!`);
       console.log("✅ Import erfolgreich:", parsed.length, "Aufgaben");
@@ -160,45 +188,69 @@ function PreventiveMaintenance() {
   // ==========================================
 
   const getFilteredData = (): SAPMaintenanceItem[] => {
+    if (!selectedAsset || !selectedTab) return [];
+
     return sapMaintenanceItems.filter((item) => {
       const assetMatch = item.asset === selectedAsset;
 
-      const [type, workCenter] = selectedTab.split("-");
-      const orderTypeMatch = item.orderType.toLowerCase() === type;
-      const workCenterMatch = item.mainWorkCenter.toLowerCase() === workCenter;
+      // Split nur beim ersten "-" um WorkCenter mit Bindestrichen zu unterstützen (z.B. ESP-INSP)
+      const firstDashIndex = selectedTab.indexOf("-");
+      const orderType = selectedTab.substring(0, firstDashIndex);
+      const workCenter = selectedTab.substring(firstDashIndex + 1);
+
+      const orderTypeMatch = item.orderType === orderType;
+      const workCenterMatch = item.mainWorkCenter === workCenter;
 
       return assetMatch && orderTypeMatch && workCenterMatch;
     });
   };
-
-  const filteredData = getFilteredData();
 
   // ==========================================
   // STATISTICS
   // ==========================================
 
   const getStats = () => {
+    if (!selectedAsset) return null;
+
     const assetData = sapMaintenanceItems.filter(
       (item) => item.asset === selectedAsset
     );
     return {
       total: assetData.length,
-      pm01: assetData.filter((item) => item.orderType === "PM01").length,
-      pm02: assetData.filter((item) => item.orderType === "PM02").length,
       overdue: assetData.filter((item) => isOverdue(item.basicStartDate))
         .length,
-      elec: assetData.filter((item) => item.mainWorkCenter === "ELEC").length,
-      mech: assetData.filter((item) => item.mainWorkCenter === "MECH").length,
+      byOrderType: orderTypes.reduce((acc, ot) => {
+        acc[ot] = assetData.filter((i) => i.orderType === ot).length;
+        return acc;
+      }, {} as Record<string, number>),
+      byWorkCenter: workCenters.reduce((acc, wc) => {
+        acc[wc] = assetData.filter((i) => i.mainWorkCenter === wc).length;
+        return acc;
+      }, {} as Record<string, number>),
     };
   };
 
+  // WICHTIG: Stats und filteredData müssen HIER berechnet werden
   const stats = getStats();
+  const filteredData = getFilteredData();
+
+  // ==========================================
+  // HELPER FUNCTIONS
+  // ==========================================
+
+  const getWorkCenterIcon = (wc: string) => {
+    if (wc === "ELEC") return "⚡";
+    if (wc === "MECH") return "🔧";
+    if (wc.includes("INSP")) return "🔍";
+    if (wc === "SUP") return "📦";
+    if (wc === "TOP") return "🎯";
+    return "🔹";
+  };
 
   // ==========================================
   // CREATE & DELETE WORK ORDER
   // ==========================================
 
-  // Kann User SAP Items löschen? (Admin, E-Supervisor, M-Supervisor)
   const canDeleteSAPItems =
     currentUser?.role === "Admin" ||
     currentUser?.role === "E-Supervisor" ||
@@ -236,13 +288,14 @@ function PreventiveMaintenance() {
         `⚠️ ACHTUNG: Möchten Sie wirklich ALLE ${count} SAP-Einträge löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden!`
       )
     ) {
-      // Doppelte Bestätigung für zusätzliche Sicherheit
       if (
         window.confirm(
           `Sind Sie absolut sicher? Es werden ${count} Einträge unwiderruflich gelöscht.`
         )
       ) {
         deleteAllSAPMaintenanceItems();
+        setSelectedAsset("");
+        setSelectedTab("");
         alert(`✅ Alle ${count} SAP-Einträge wurden gelöscht`);
       }
     }
@@ -286,8 +339,7 @@ function PreventiveMaintenance() {
         <div>
           <h1>📋 SAP Preventive Maintenance</h1>
           <p style={{ color: "#6b7280", fontSize: "0.875rem" }}>
-            PM01 = Selbst erstellte Jobs (Work Orders) | PM02 = Preventive
-            Maintenance | ELEC = Elektriker | MECH = Mechaniker
+            Verwaltung von Wartungsaufgaben aus SAP PM Excel-Exporten
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
@@ -300,47 +352,10 @@ function PreventiveMaintenance() {
               style={{ display: "none" }}
             />
           </label>
-          {/* DEBUG: Button ist jetzt immer sichtbar */}
           <button
             onClick={handleDeleteAllSAPItems}
             disabled={!canDeleteSAPItems || sapMaintenanceItems.length === 0}
-            style={{
-              padding: "0.75rem 1.25rem",
-              background:
-                !canDeleteSAPItems || sapMaintenanceItems.length === 0
-                  ? "#e5e7eb"
-                  : "rgba(239, 68, 68, 0.1)",
-              color:
-                !canDeleteSAPItems || sapMaintenanceItems.length === 0
-                  ? "#9ca3af"
-                  : "#ef4444",
-              border: "2px solid rgba(239, 68, 68, 0.3)",
-              borderRadius: "10px",
-              fontSize: "0.9375rem",
-              fontWeight: "700",
-              cursor:
-                !canDeleteSAPItems || sapMaintenanceItems.length === 0
-                  ? "not-allowed"
-                  : "pointer",
-              transition: "all 0.2s",
-              whiteSpace: "nowrap",
-              opacity:
-                !canDeleteSAPItems || sapMaintenanceItems.length === 0
-                  ? 0.5
-                  : 1,
-            }}
-            onMouseEnter={(e) => {
-              if (canDeleteSAPItems && sapMaintenanceItems.length > 0) {
-                e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)";
-                e.currentTarget.style.borderColor = "#ef4444";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (canDeleteSAPItems && sapMaintenanceItems.length > 0) {
-                e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
-                e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.3)";
-              }
-            }}
+            className="btn-delete-all"
             title={
               !canDeleteSAPItems
                 ? "Keine Berechtigung (nur Supervisors & Admin)"
@@ -355,18 +370,8 @@ function PreventiveMaintenance() {
       </div>
 
       {loading && (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "2rem",
-            background: "white",
-            borderRadius: "12px",
-            marginBottom: "2rem",
-          }}
-        >
-          <p style={{ color: "#2563eb", fontWeight: "600" }}>
-            ⏳ Lade Excel-Datei...
-          </p>
+        <div className="pm-loading">
+          <p>⏳ Lade Excel-Datei...</p>
         </div>
       )}
 
@@ -382,10 +387,11 @@ function PreventiveMaintenance() {
             <strong>📋 Erwartete Excel-Struktur:</strong>
             <ul>
               <li>
-                <strong>Spalte A:</strong> Order Type (PM01 / PM02)
+                <strong>Spalte A:</strong> Order Type (PM01, PM02, PM06, etc.)
               </li>
               <li>
-                <strong>Spalte B:</strong> Main Work Center (ELEC / MECH)
+                <strong>Spalte B:</strong> Main Work Center (ELEC, MECH, SUP,
+                TOP, etc.)
               </li>
               <li>
                 <strong>Spalte C:</strong> Order Number
@@ -397,19 +403,23 @@ function PreventiveMaintenance() {
                 <strong>Spalte E:</strong> Actual Release
               </li>
               <li>
-                <strong>Spalte F:</strong> Basic Start Date (DD.MM.YYYY)
+                <strong>Spalte F:</strong> Basic Start Date
               </li>
               <li>
                 <strong>Spalte G:</strong> Equipment
               </li>
               <li>
-                <strong>Spalte H:</strong> Description Detail
+                <strong>Spalte H:</strong> Description (Detail)
               </li>
               <li>
-                <strong>Spalte K:</strong> Functional Location (T207-...)
+                <strong>Spalte I:</strong> Description (Extra)
               </li>
               <li>
-                <strong>Spalte L:</strong> System Status
+                <strong>Spalte J:</strong> Functional Location (enthält Asset
+                wie T208)
+              </li>
+              <li>
+                <strong>Spalte K:</strong> System Status
               </li>
             </ul>
           </div>
@@ -417,32 +427,26 @@ function PreventiveMaintenance() {
       ) : sapMaintenanceItems.length > 0 ? (
         <>
           {/* STATISTICS */}
-          <div className="pm-stats">
-            <div className="pm-stat-card">
-              <h3>Gesamt</h3>
-              <p className="stat-number">{stats.total}</p>
+          {stats && (
+            <div className="pm-stats">
+              <div className="pm-stat-card">
+                <h3>Gesamt</h3>
+                <p className="stat-number">{stats.total}</p>
+              </div>
+
+              {Object.entries(stats.byOrderType).map(([ot, count]) => (
+                <div key={ot} className="pm-stat-card planned">
+                  <h3>{ot}</h3>
+                  <p className="stat-number">{count}</p>
+                </div>
+              ))}
+
+              <div className="pm-stat-card overdue">
+                <h3>Überfällig</h3>
+                <p className="stat-number">{stats.overdue}</p>
+              </div>
             </div>
-            <div className="pm-stat-card planned">
-              <h3>PM01 (Jobs)</h3>
-              <p className="stat-number">{stats.pm01}</p>
-            </div>
-            <div className="pm-stat-card completed">
-              <h3>PM02 (Preventive)</h3>
-              <p className="stat-number">{stats.pm02}</p>
-            </div>
-            <div className="pm-stat-card overdue">
-              <h3>Überfällig</h3>
-              <p className="stat-number">{stats.overdue}</p>
-            </div>
-            <div className="pm-stat-card">
-              <h3>⚡ Elektriker</h3>
-              <p className="stat-number">{stats.elec}</p>
-            </div>
-            <div className="pm-stat-card">
-              <h3>🔧 Mechaniker</h3>
-              <p className="stat-number">{stats.mech}</p>
-            </div>
-          </div>
+          )}
 
           {/* ASSET TABS */}
           <div className="asset-tabs">
@@ -452,7 +456,18 @@ function PreventiveMaintenance() {
                 className={`asset-tab ${
                   selectedAsset === asset ? "active" : ""
                 }`}
-                onClick={() => setSelectedAsset(asset)}
+                onClick={() => {
+                  setSelectedAsset(asset);
+                  // Auto-select first tab for this asset
+                  const assetItems = sapMaintenanceItems.filter(
+                    (i) => i.asset === asset
+                  );
+                  if (assetItems.length > 0) {
+                    const firstWC = assetItems[0].mainWorkCenter;
+                    const firstOT = assetItems[0].orderType;
+                    setSelectedTab(`${firstOT}-${firstWC}`);
+                  }
+                }}
               >
                 <span className="asset-tab-icon">🛢️</span>
                 <span className="asset-tab-name">{asset}</span>
@@ -466,253 +481,226 @@ function PreventiveMaintenance() {
             ))}
           </div>
 
-          {/* PM TYPE TABS - 4 REITER */}
-          <div className="category-tabs">
-            <button
-              className={`category-tab ${
-                selectedTab === "pm01-elec" ? "active" : ""
-              }`}
-              onClick={() => setSelectedTab("pm01-elec")}
+          {/* WORK CENTER & ORDER TYPE TABS */}
+          {selectedAsset && (
+            <div
+              className="category-tabs"
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "0.75rem",
+                marginBottom: "2rem",
+              }}
             >
-              ⚡ PM01 - Elektriker
-              <span className="category-count">
-                {
-                  sapMaintenanceItems.filter(
+              {orderTypes.map((ot) =>
+                workCenters.map((wc) => {
+                  const tabKey = `${ot}-${wc}`;
+                  const count = sapMaintenanceItems.filter(
                     (i) =>
                       i.asset === selectedAsset &&
-                      i.orderType === "PM01" &&
-                      i.mainWorkCenter === "ELEC"
-                  ).length
-                }
-              </span>
-            </button>
-            <button
-              className={`category-tab ${
-                selectedTab === "pm01-mech" ? "active" : ""
-              }`}
-              onClick={() => setSelectedTab("pm01-mech")}
-            >
-              🔧 PM01 - Mechaniker
-              <span className="category-count">
-                {
-                  sapMaintenanceItems.filter(
-                    (i) =>
-                      i.asset === selectedAsset &&
-                      i.orderType === "PM01" &&
-                      i.mainWorkCenter === "MECH"
-                  ).length
-                }
-              </span>
-            </button>
-            <button
-              className={`category-tab ${
-                selectedTab === "pm02-elec" ? "active" : ""
-              }`}
-              onClick={() => setSelectedTab("pm02-elec")}
-            >
-              ⚡ PM02 - Elektriker
-              <span className="category-count">
-                {
-                  sapMaintenanceItems.filter(
-                    (i) =>
-                      i.asset === selectedAsset &&
-                      i.orderType === "PM02" &&
-                      i.mainWorkCenter === "ELEC"
-                  ).length
-                }
-              </span>
-            </button>
-            <button
-              className={`category-tab ${
-                selectedTab === "pm02-mech" ? "active" : ""
-              }`}
-              onClick={() => setSelectedTab("pm02-mech")}
-            >
-              🔧 PM02 - Mechaniker
-              <span className="category-count">
-                {
-                  sapMaintenanceItems.filter(
-                    (i) =>
-                      i.asset === selectedAsset &&
-                      i.orderType === "PM02" &&
-                      i.mainWorkCenter === "MECH"
-                  ).length
-                }
-              </span>
-            </button>
-          </div>
+                      i.orderType === ot &&
+                      i.mainWorkCenter === wc
+                  ).length;
 
-          {/* DATA TABLE */}
-          <div className="pm-table-container">
-            <table className="pm-table">
-              <thead>
-                <tr>
-                  <th>Order Nr.</th>
-                  <th>Beschreibung</th>
-                  <th>Start Datum</th>
-                  <th>Fällig (+14 Tage)</th>
-                  <th>Equipment</th>
-                  <th>Status</th>
-                  <th>Aktionen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredData.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      style={{ padding: "3rem", textAlign: "center" }}
+                  if (count === 0) return null;
+
+                  return (
+                    <button
+                      key={tabKey}
+                      className={`category-tab ${
+                        selectedTab === tabKey ? "active" : ""
+                      }`}
+                      onClick={() => setSelectedTab(tabKey)}
+                      style={{
+                        padding: "0.75rem 1.25rem",
+                        background:
+                          selectedTab === tabKey ? "#667eea" : "white",
+                        color: selectedTab === tabKey ? "white" : "#4b5563",
+                        border:
+                          selectedTab === tabKey ? "none" : "2px solid #e5e7eb",
+                        borderRadius: "10px",
+                        fontSize: "0.9rem",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        whiteSpace: "nowrap",
+                      }}
                     >
-                      <p style={{ color: "#9ca3af", margin: 0 }}>
-                        Keine Einträge in dieser Kategorie
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredData.map((item) => {
-                    const daysUntilDue = getDaysUntilDue(item.basicStartDate);
-                    const overdue = isOverdue(item.basicStartDate);
-
-                    return (
-                      <tr
-                        key={item.id}
+                      <span>
+                        {getWorkCenterIcon(wc)} {ot} - {wc}
+                      </span>
+                      <span
                         style={{
-                          background: overdue
-                            ? "rgba(239, 68, 68, 0.08)"
-                            : "white",
+                          background:
+                            selectedTab === tabKey
+                              ? "rgba(255,255,255,0.2)"
+                              : "#f3f4f6",
+                          padding: "0.25rem 0.5rem",
+                          borderRadius: "6px",
+                          fontSize: "0.75rem",
                         }}
                       >
-                        <td className="pm-equipment">
-                          <strong style={{ color: "#2563eb" }}>
-                            {item.orderNumber}
-                          </strong>
-                        </td>
-                        <td className="pm-description">
-                          <div
-                            style={{
-                              fontWeight: "600",
-                              marginBottom: "0.25rem",
-                            }}
-                          >
-                            {item.description}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "0.8125rem",
-                              color: "#6b7280",
-                            }}
-                          >
-                            {item.descriptionDetail}
-                          </div>
-                        </td>
-                        <td className="pm-date">
-                          <span
-                            style={{
-                              fontWeight: "600",
-                              color: overdue ? "#ef4444" : "#4b5563",
-                            }}
-                          >
-                            {formatDate(item.basicStartDate)}
-                          </span>
-                        </td>
-                        <td className="pm-priority">
-                          {daysUntilDue !== null && (
-                            <span
-                              className={`pm-status ${
-                                overdue
-                                  ? "pm-status-overdue"
-                                  : daysUntilDue <= 7
-                                  ? "pm-status-planned"
-                                  : "pm-status-completed"
-                              }`}
-                            >
-                              {overdue
-                                ? `⚠️ ${Math.abs(daysUntilDue)} Tage über!`
-                                : `✅ ${daysUntilDue} Tage`}
-                            </span>
-                          )}
-                        </td>
-                        <td className="pm-task">
-                          <div style={{ fontSize: "0.875rem" }}>
-                            {item.equipment || "—"}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "0.75rem",
-                              color: "#9ca3af",
-                            }}
-                          >
-                            {item.functionalLocation}
-                          </div>
-                        </td>
-                        <td className="pm-plan">
-                          <span
-                            style={{
-                              padding: "0.25rem 0.625rem",
-                              borderRadius: "6px",
-                              fontSize: "0.75rem",
-                              fontWeight: "700",
-                              background: "#f3f4f6",
-                              color: "#6b7280",
-                            }}
-                          >
-                            {item.systemStatus || "N/A"}
-                          </span>
-                        </td>
-                        <td>
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: "0.5rem",
-                              alignItems: "center",
-                            }}
-                          >
-                            <button
-                              className="btn-create-wo"
-                              onClick={() => handleCreateWorkOrder(item)}
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* DATA TABLE */}
+          {selectedTab && (
+            <div className="pm-table-container">
+              <table className="pm-table">
+                <thead>
+                  <tr>
+                    <th>Order Nr.</th>
+                    <th>Beschreibung</th>
+                    <th>Start Datum</th>
+                    <th>Fällig (+14 Tage)</th>
+                    <th>Equipment</th>
+                    <th>Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredData.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        style={{ padding: "3rem", textAlign: "center" }}
+                      >
+                        <p style={{ color: "#9ca3af", margin: 0 }}>
+                          Keine Einträge in dieser Kategorie
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredData.map((item) => {
+                      const daysUntilDue = getDaysUntilDue(item.basicStartDate);
+                      const overdue = isOverdue(item.basicStartDate);
+
+                      return (
+                        <tr
+                          key={item.id}
+                          style={{
+                            background: overdue
+                              ? "rgba(239, 68, 68, 0.08)"
+                              : "white",
+                          }}
+                        >
+                          <td className="pm-equipment">
+                            <strong style={{ color: "#2563eb" }}>
+                              {item.orderNumber}
+                            </strong>
+                          </td>
+                          <td className="pm-description">
+                            <div
                               style={{
-                                padding: "0.5rem 1rem",
-                                fontSize: "0.875rem",
+                                fontWeight: "600",
+                                marginBottom: "0.25rem",
                               }}
                             >
-                              📝 WO erstellen
-                            </button>
-                            {canDeleteSAPItems && (
-                              <button
-                                onClick={() => handleDeleteSAPItem(item)}
+                              {item.description}
+                            </div>
+                            {item.descriptionDetail && (
+                              <div
                                 style={{
-                                  padding: "0.5rem 0.75rem",
-                                  background: "rgba(239, 68, 68, 0.1)",
-                                  color: "#ef4444",
-                                  border: "1px solid rgba(239, 68, 68, 0.2)",
-                                  borderRadius: "8px",
-                                  fontSize: "0.875rem",
-                                  fontWeight: "700",
-                                  cursor: "pointer",
-                                  transition: "all 0.2s",
+                                  fontSize: "0.8125rem",
+                                  color: "#6b7280",
                                 }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.background =
-                                    "rgba(239, 68, 68, 0.2)";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.background =
-                                    "rgba(239, 68, 68, 0.1)";
-                                }}
-                                title="SAP Item löschen (nur Supervisors & Admin)"
                               >
-                                🗑️
-                              </button>
+                                {item.descriptionDetail}
+                              </div>
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                            {item.descriptionExtra && (
+                              <div
+                                style={{
+                                  fontSize: "0.75rem",
+                                  color: "#9ca3af",
+                                  marginTop: "0.125rem",
+                                }}
+                              >
+                                {item.descriptionExtra}
+                              </div>
+                            )}
+                          </td>
+                          <td className="pm-date">
+                            <span
+                              style={{
+                                fontWeight: "600",
+                                color: overdue ? "#ef4444" : "#4b5563",
+                              }}
+                            >
+                              {formatDate(item.basicStartDate)}
+                            </span>
+                          </td>
+                          <td className="pm-priority">
+                            {daysUntilDue !== null && (
+                              <span
+                                className={`pm-status ${
+                                  overdue
+                                    ? "pm-status-overdue"
+                                    : daysUntilDue <= 7
+                                    ? "pm-status-planned"
+                                    : "pm-status-completed"
+                                }`}
+                              >
+                                {overdue
+                                  ? `⚠️ ${Math.abs(daysUntilDue)} Tage über!`
+                                  : `✅ ${daysUntilDue} Tage`}
+                              </span>
+                            )}
+                          </td>
+                          <td className="pm-task">
+                            <div style={{ fontSize: "0.875rem" }}>
+                              {item.equipment || "—"}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: "0.75rem",
+                                color: "#9ca3af",
+                              }}
+                            >
+                              {item.functionalLocation}
+                            </div>
+                          </td>
+                          <td>
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "0.5rem",
+                                alignItems: "center",
+                              }}
+                            >
+                              <button
+                                className="btn-create-wo"
+                                onClick={() => handleCreateWorkOrder(item)}
+                              >
+                                📝 WO erstellen
+                              </button>
+                              {canDeleteSAPItems && (
+                                <button
+                                  onClick={() => handleDeleteSAPItem(item)}
+                                  className="btn-delete-item"
+                                  title="SAP Item löschen (nur Supervisors & Admin)"
+                                >
+                                  🗑️
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       ) : null}
 
@@ -764,6 +752,9 @@ function PreventiveMaintenance() {
                 </p>
                 <p style={{ margin: "0.5rem 0", fontSize: "0.875rem" }}>
                   <strong>Details:</strong> {selectedItem.descriptionDetail}
+                </p>
+                <p style={{ margin: "0.5rem 0", fontSize: "0.875rem" }}>
+                  <strong>Kategorie:</strong> {selectedItem.descriptionExtra}
                 </p>
                 <p style={{ margin: "0.5rem 0", fontSize: "0.875rem" }}>
                   <strong>Anlage:</strong> {selectedItem.asset}
