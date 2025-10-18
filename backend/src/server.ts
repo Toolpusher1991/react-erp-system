@@ -5,10 +5,16 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import prisma from './prisma';
 
 // Load environment variables
 dotenv.config();
+
+// JWT Secret
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key-change-me';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -29,6 +35,53 @@ app.use((req, res, next) => {
   console.log(`[${timestamp}] ${req.method} ${req.path}`);
   next();
 });
+
+// ==========================================
+// JWT MIDDLEWARE
+// ==========================================
+
+// Middleware to verify JWT token
+const authenticateToken = (req: any, res: any, next: any) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+  if (!token) {
+    return res.status(401).json({
+      error: 'Access token required',
+    });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+    if (err) {
+      console.log('❌ Invalid token:', err.message);
+      return res.status(403).json({
+        error: 'Invalid or expired token',
+      });
+    }
+
+    req.user = user;
+    next();
+  });
+};
+
+// Optional: Middleware for role-based access
+const requireRole = (...allowedRoles: string[]) => {
+  return (req: any, res: any, next: any) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        error: 'Insufficient permissions',
+        required: allowedRoles,
+        current: req.user.role,
+      });
+    }
+
+    next();
+  };
+};
 
 // ==========================================
 // HELPER FUNCTIONS - ROLE MAPPING
@@ -268,9 +321,7 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    // TODO: Use bcrypt for password comparison in production
-    // For now, use simple comparison (INSECURE!)
-    const bcrypt = require('bcryptjs');
+    // Verify password with bcrypt
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
@@ -291,11 +342,22 @@ app.post('/api/auth/login', async (req, res) => {
       createdAt: user.createdAt.toISOString(),
     };
 
-    console.log('✅ Login successful:', user.email);
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
+    console.log('✅ Login successful:', user.email, '| Token expires in:', JWT_EXPIRES_IN);
 
     res.json({
       user: frontendUser,
-      token: 'fake-jwt-token', // TODO: Generate real JWT
+      token,
     });
   } catch (error) {
     console.error('❌ Login error:', error);
@@ -305,11 +367,39 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// GET /api/auth/me (für später mit JWT)
-app.get('/api/auth/me', (req, res) => {
-  res.status(501).json({
-    error: 'Not implemented yet - JWT coming soon',
-  });
+// GET /api/auth/me - Get current user from token
+app.get('/api/auth/me', authenticateToken, async (req: any, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      include: {
+        assignedAssets: {
+          include: {
+            asset: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const frontendUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: mapRoleToFrontend(user.role),
+      status: mapStatusToFrontend(user.status),
+      assignedAssets: user.assignedAssets.map(ua => ua.assetId),
+      createdAt: user.createdAt.toISOString(),
+    };
+
+    res.json({ user: frontendUser });
+  } catch (error) {
+    console.error('❌ Get current user error:', error);
+    res.status(500).json({ error: 'Failed to get user' });
+  }
 });
 
 // ==========================================
@@ -389,6 +479,223 @@ app.get('/api/users/:id', async (req, res) => {
     console.error('❌ Get user error:', error);
     res.status(500).json({
       error: 'Failed to fetch user',
+    });
+  }
+});
+
+// POST /api/users - Create new user (Admin only)
+app.post('/api/users', async (req, res) => {
+  try {
+    const { email, name, password, role, status, assignedAssets } = req.body;
+
+    // Validation
+    if (!email || !name || !password || !role) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        required: ['email', 'name', 'password', 'role'],
+      });
+    }
+
+    // Check if email already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        error: 'Email already exists',
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user
+    const user = await prisma.user.create({
+      data: {
+        email: email.trim(),
+        name: name.trim(),
+        password: hashedPassword,
+        role: mapRoleToPrisma(role) as any,
+        status: status ? (status === 'Aktiv' ? 'ACTIVE' : 'INACTIVE') : 'ACTIVE',
+      },
+    });
+
+    // Assign assets if provided
+    if (assignedAssets && Array.isArray(assignedAssets) && assignedAssets.length > 0) {
+      await prisma.userAsset.createMany({
+        data: assignedAssets.map((assetId: number) => ({
+          userId: user.id,
+          assetId,
+        })),
+      });
+    }
+
+    console.log('✅ User created:', user.email, '(ID:', user.id, ')');
+
+    // Return user without password
+    const mappedUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: mapRoleToFrontend(user.role),
+      status: mapStatusToFrontend(user.status),
+      assignedAssets: assignedAssets || [],
+      createdAt: user.createdAt.toISOString(),
+    };
+
+    res.status(201).json({
+      message: 'User erfolgreich erstellt',
+      user: mappedUser,
+    });
+  } catch (error) {
+    console.error('❌ Create user error:', error);
+    res.status(500).json({
+      error: 'Failed to create user',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// PUT /api/users/:id - Update user
+app.put('/api/users/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { email, name, password, role, status, assignedAssets } = req.body;
+
+    // Check if user exists
+    const existingUser = await prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({ error: 'User nicht gefunden' });
+    }
+
+    // Prepare update data
+    const updateData: any = {};
+
+    if (email) {
+      // Check if new email already exists (and it's not the same user)
+      const emailExists = await prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (emailExists && emailExists.id !== id) {
+        return res.status(409).json({
+          error: 'Email already exists',
+        });
+      }
+
+      updateData.email = email.trim();
+    }
+
+    if (name) updateData.name = name.trim();
+    if (role) updateData.role = mapRoleToPrisma(role) as any;
+    if (status) updateData.status = status === 'Aktiv' ? 'ACTIVE' : 'INACTIVE';
+
+    // Hash new password if provided
+    if (password) {
+      updateData.password = await bcrypt.hash(password, 10);
+    }
+
+    // Update user
+    const user = await prisma.user.update({
+      where: { id },
+      data: updateData,
+    });
+
+    // Update assigned assets if provided
+    if (assignedAssets !== undefined && Array.isArray(assignedAssets)) {
+      // Delete existing assignments
+      await prisma.userAsset.deleteMany({
+        where: { userId: id },
+      });
+
+      // Create new assignments
+      if (assignedAssets.length > 0) {
+        await prisma.userAsset.createMany({
+          data: assignedAssets.map((assetId: number) => ({
+            userId: id,
+            assetId,
+          })),
+        });
+      }
+    }
+
+    console.log('✏️ User updated:', user.email, '(ID:', id, ')');
+
+    // Get updated user with assets
+    const updatedUser = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        assignedAssets: true,
+      },
+    });
+
+    const mappedUser = {
+      id: updatedUser!.id,
+      email: updatedUser!.email,
+      name: updatedUser!.name,
+      role: mapRoleToFrontend(updatedUser!.role),
+      status: mapStatusToFrontend(updatedUser!.status),
+      assignedAssets: updatedUser!.assignedAssets.map(ua => ua.assetId),
+      createdAt: updatedUser!.createdAt.toISOString(),
+    };
+
+    res.json({
+      message: 'User erfolgreich aktualisiert',
+      user: mappedUser,
+    });
+  } catch (error) {
+    console.error('❌ Update user error:', error);
+    res.status(500).json({
+      error: 'Failed to update user',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// DELETE /api/users/:id - Delete user
+app.delete('/api/users/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User nicht gefunden' });
+    }
+
+    // Prevent deleting yourself (optional safety check)
+    // You could pass the current user from JWT middleware
+    // if (req.user && req.user.userId === id) {
+    //   return res.status(400).json({ error: 'Cannot delete yourself' });
+    // }
+
+    // Delete user (cascade will delete related data)
+    await prisma.user.delete({
+      where: { id },
+    });
+
+    console.log('🗑️ User deleted:', user.email, '(ID:', id, ')');
+
+    res.json({
+      message: 'User erfolgreich gelöscht',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Delete user error:', error);
+    res.status(500).json({
+      error: 'Failed to delete user',
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -821,6 +1128,377 @@ app.put('/api/assets/:id', async (req, res) => {
     console.error('❌ Update asset error:', error);
     res.status(404).json({
       error: 'Asset nicht gefunden',
+    });
+  }
+});
+
+// ==========================================
+// COMMENT ROUTES
+// ==========================================
+
+// GET /api/comments - Get all comments (or filtered by workOrderId)
+app.get('/api/comments', async (req, res) => {
+  try {
+    const { workOrderId } = req.query;
+
+    const where = workOrderId
+      ? { workOrderId: parseInt(workOrderId as string) }
+      : {};
+
+    const comments = await prisma.comment.findMany({
+      where,
+      include: {
+        user: true,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    const mappedComments = comments.map((comment) => ({
+      id: comment.id,
+      workOrderId: comment.workOrderId,
+      userId: comment.userId,
+      userName: comment.user.name,
+      userRole: mapRoleToFrontend(comment.user.role),
+      comment: comment.comment, // Schema field is "comment"
+      timestamp: comment.createdAt.toISOString(),
+      type: comment.type.toLowerCase().replace('_', '_') as any, // "comment", "status_change", etc.
+    }));
+
+    console.log(`✅ Comments loaded: ${mappedComments.length}${workOrderId ? ` (Work Order ${workOrderId})` : ''}`);
+
+    res.json({
+      comments: mappedComments,
+      total: mappedComments.length,
+    });
+  } catch (error) {
+    console.error('❌ Error fetching comments:', error);
+    res.status(500).json({
+      error: 'Fehler beim Laden der Kommentare',
+    });
+  }
+});
+
+// POST /api/comments - Create a new comment
+app.post('/api/comments', async (req, res) => {
+  try {
+    const { workOrderId, userId, content, type = 'COMMENT' } = req.body;
+
+    // Validation
+    if (!workOrderId || !userId || !content) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        required: ['workOrderId', 'userId', 'content'],
+      });
+    }
+
+    // Check if work order exists
+    const workOrder = await prisma.workOrder.findUnique({
+      where: { id: workOrderId },
+    });
+
+    if (!workOrder) {
+      return res.status(404).json({
+        error: 'Work Order nicht gefunden',
+      });
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'User nicht gefunden',
+      });
+    }
+
+    // Create comment (Prisma field is "comment", not "content")
+    const comment = await prisma.comment.create({
+      data: {
+        workOrderId,
+        userId,
+        comment: content.trim(), // Schema field is "comment"
+        type: type.toUpperCase() as any,
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    console.log('✅ Comment created:', comment.id, 'for WO:', workOrderId);
+
+    // Return mapped comment
+    const mappedComment = {
+      id: comment.id,
+      workOrderId: comment.workOrderId,
+      userId: comment.userId,
+      userName: comment.user.name,
+      userRole: mapRoleToFrontend(comment.user.role),
+      comment: comment.comment, // Schema field is "comment"
+      timestamp: comment.createdAt.toISOString(),
+      type: comment.type.toLowerCase().replace('_', '_') as any,
+    };
+
+    res.status(201).json({
+      message: 'Kommentar erfolgreich erstellt',
+      comment: mappedComment,
+    });
+  } catch (error) {
+    console.error('❌ Error creating comment:', error);
+    res.status(500).json({
+      error: 'Fehler beim Erstellen des Kommentars',
+    });
+  }
+});
+
+// GET /api/workorders/:id/comments - Get comments for a specific work order
+app.get('/api/workorders/:id/comments', async (req, res) => {
+  try {
+    const workOrderId = parseInt(req.params.id);
+
+    if (isNaN(workOrderId)) {
+      return res.status(400).json({
+        error: 'Ungültige Work Order ID',
+      });
+    }
+
+    const comments = await prisma.comment.findMany({
+      where: { workOrderId },
+      include: {
+        user: true,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    const mappedComments = comments.map((comment) => ({
+      id: comment.id,
+      workOrderId: comment.workOrderId,
+      userId: comment.userId,
+      userName: comment.user.name,
+      userRole: mapRoleToFrontend(comment.user.role),
+      comment: comment.comment, // Schema field is "comment"
+      timestamp: comment.createdAt.toISOString(),
+      type: comment.type.toLowerCase().replace('_', '_') as any,
+    }));
+
+    console.log(`✅ Comments loaded for WO ${workOrderId}: ${mappedComments.length}`);
+
+    res.json({
+      comments: mappedComments,
+      total: mappedComments.length,
+    });
+  } catch (error) {
+    console.error('❌ Error fetching work order comments:', error);
+    res.status(500).json({
+      error: 'Fehler beim Laden der Kommentare',
+    });
+  }
+});
+
+// ==========================================
+// NOTIFICATION ROUTES
+// ==========================================
+
+// GET /api/notifications - Get all notifications (or filtered by userId)
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    const where = userId
+      ? { userId: parseInt(userId as string) }
+      : {};
+
+    const notifications = await prisma.notification.findMany({
+      where,
+      include: {
+        workOrder: true,
+        user: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    const mappedNotifications = notifications.map((notification) => ({
+      id: notification.id,
+      userId: notification.userId,
+      type: notification.type.toLowerCase() as any,
+      workOrderId: notification.workOrderId,
+      workOrderTitle: notification.workOrder.title,
+      message: notification.message,
+      createdAt: notification.createdAt.toISOString(),
+      read: notification.read,
+      createdBy: notification.createdById,
+      createdByName: '', // Can be extended if needed
+    }));
+
+    console.log(`✅ Notifications loaded: ${mappedNotifications.length}${userId ? ` (User ${userId})` : ''}`);
+
+    res.json({
+      notifications: mappedNotifications,
+      total: mappedNotifications.length,
+    });
+  } catch (error) {
+    console.error('❌ Error fetching notifications:', error);
+    res.status(500).json({
+      error: 'Fehler beim Laden der Benachrichtigungen',
+    });
+  }
+});
+
+// POST /api/notifications - Create a new notification
+app.post('/api/notifications', async (req, res) => {
+  try {
+    const { userId, type, workOrderId, message, createdBy } = req.body;
+
+    // Validation
+    if (!userId || !type || !workOrderId || !message || !createdBy) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        required: ['userId', 'type', 'workOrderId', 'message', 'createdBy'],
+      });
+    }
+
+    // Check if work order exists
+    const workOrder = await prisma.workOrder.findUnique({
+      where: { id: workOrderId },
+    });
+
+    if (!workOrder) {
+      return res.status(404).json({
+        error: 'Work Order nicht gefunden',
+      });
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'User nicht gefunden',
+      });
+    }
+
+    // Create notification
+    const notification = await prisma.notification.create({
+      data: {
+        userId,
+        type: type.toUpperCase() as any,
+        workOrderId,
+        message: message.trim(),
+        createdById: createdBy,
+        read: false,
+      },
+      include: {
+        workOrder: true,
+      },
+    });
+
+    console.log('✅ Notification created:', notification.id, 'for User:', userId);
+
+    // Return mapped notification
+    const mappedNotification = {
+      id: notification.id,
+      userId: notification.userId,
+      type: notification.type.toLowerCase() as any,
+      workOrderId: notification.workOrderId,
+      workOrderTitle: notification.workOrder.title,
+      message: notification.message,
+      createdAt: notification.createdAt.toISOString(),
+      read: notification.read,
+      createdBy: notification.createdById,
+      createdByName: '',
+    };
+
+    res.status(201).json({
+      message: 'Benachrichtigung erfolgreich erstellt',
+      notification: mappedNotification,
+    });
+  } catch (error) {
+    console.error('❌ Error creating notification:', error);
+    res.status(500).json({
+      error: 'Fehler beim Erstellen der Benachrichtigung',
+    });
+  }
+});
+
+// PUT /api/notifications/:id - Mark notification as read
+app.put('/api/notifications/:id', async (req, res) => {
+  try {
+    const notificationId = parseInt(req.params.id);
+
+    if (isNaN(notificationId)) {
+      return res.status(400).json({
+        error: 'Ungültige Notification ID',
+      });
+    }
+
+    const notification = await prisma.notification.update({
+      where: { id: notificationId },
+      data: { read: true },
+      include: {
+        workOrder: true,
+      },
+    });
+
+    console.log('✅ Notification marked as read:', notificationId);
+
+    const mappedNotification = {
+      id: notification.id,
+      userId: notification.userId,
+      type: notification.type.toLowerCase() as any,
+      workOrderId: notification.workOrderId,
+      workOrderTitle: notification.workOrder.title,
+      message: notification.message,
+      createdAt: notification.createdAt.toISOString(),
+      read: notification.read,
+      createdBy: notification.createdById,
+      createdByName: '',
+    };
+
+    res.json({
+      message: 'Benachrichtigung als gelesen markiert',
+      notification: mappedNotification,
+    });
+  } catch (error) {
+    console.error('❌ Error updating notification:', error);
+    res.status(500).json({
+      error: 'Fehler beim Aktualisieren der Benachrichtigung',
+    });
+  }
+});
+
+// DELETE /api/notifications/:id - Delete a notification
+app.delete('/api/notifications/:id', async (req, res) => {
+  try {
+    const notificationId = parseInt(req.params.id);
+
+    if (isNaN(notificationId)) {
+      return res.status(400).json({
+        error: 'Ungültige Notification ID',
+      });
+    }
+
+    await prisma.notification.delete({
+      where: { id: notificationId },
+    });
+
+    console.log('✅ Notification deleted:', notificationId);
+
+    res.json({
+      message: 'Benachrichtigung erfolgreich gelöscht',
+    });
+  } catch (error) {
+    console.error('❌ Error deleting notification:', error);
+    res.status(500).json({
+      error: 'Fehler beim Löschen der Benachrichtigung',
     });
   }
 });

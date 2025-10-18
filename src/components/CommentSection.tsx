@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useData } from "../contexts/DataContext";
 import { useAuth } from "../contexts/AuthContext";
+import { getWorkOrderComments, createComment } from "../services/api";
 import type { WorkOrderComment } from "../types";
 
 interface CommentSectionProps {
@@ -10,37 +11,71 @@ interface CommentSectionProps {
 
 function CommentSection({ workOrderId, workOrder }: CommentSectionProps) {
   const { currentUser } = useAuth();
-  const { comments, addComment, addNotification, notifications, workOrders } =
-    useData();
+  const { addNotification, notifications, workOrders } = useData();
   const [newComment, setNewComment] = useState("");
+  const [comments, setComments] = useState<WorkOrderComment[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const wo = workOrder || workOrders.find((w) => w.id === workOrderId);
 
-  const woComments = comments
-    .filter((c) => c.workOrderId === workOrderId)
-    .sort(
-      (a, b) =>
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
+  // Load comments from backend
+  useEffect(() => {
+    loadComments();
+  }, [workOrderId]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const loadComments = async () => {
+    try {
+      setLoading(true);
+      console.log(`💬 Loading comments for WO ${workOrderId}...`);
+
+      const result = await getWorkOrderComments(workOrderId);
+
+      if (result.data) {
+        const data = result.data as any;
+        setComments(data.comments || []);
+        console.log(`✅ Comments loaded: ${data.comments?.length || 0}`);
+      }
+    } catch (error) {
+      console.error("❌ Failed to load comments:", error);
+      setComments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const woComments = comments.sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!newComment.trim() || !currentUser) return;
 
-    const comment: WorkOrderComment = {
-      id: Math.max(...comments.map((c) => c.id), 0) + 1,
-      workOrderId,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userRole: currentUser.role,
-      comment: newComment.trim(),
-      timestamp: new Date().toISOString(),
-      type: "comment",
-    };
+    try {
+      console.log("✨ Creating comment for WO:", workOrderId);
 
-    addComment(comment);
-    setNewComment("");
+      const result = await createComment({
+        workOrderId,
+        userId: currentUser.id,
+        content: newComment.trim(),
+        type: "COMMENT",
+      });
+
+      if (result.data) {
+        console.log("✅ Comment created successfully:", result.data);
+        setNewComment("");
+        // Reload comments to show the new one
+        await loadComments();
+      }
+    } catch (error: any) {
+      console.error("❌ Error creating comment:", error);
+      alert(
+        "Fehler beim Erstellen des Kommentars: " +
+          (error.response?.data?.error || error.message)
+      );
+      return;
+    }
 
     // Erstelle Notifications für relevante User
     if (wo) {

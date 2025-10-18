@@ -119,6 +119,50 @@ export const getUserById = async (id: number) => {
   return apiClient.get(`/users/${id}`);
 };
 
+export const createUser = async (user: any) => {
+  return apiClient.post('/users', user);
+};
+
+export const updateUser = async (id: number, updates: any) => {
+  return apiClient.put(`/users/${id}`, updates);
+};
+
+export const deleteUser = async (id: number) => {
+  return apiClient.delete(`/users/${id}`);
+};
+
+// Comments
+export const getComments = async (workOrderId?: number) => {
+  const url = workOrderId ? `/comments?workOrderId=${workOrderId}` : '/comments';
+  return apiClient.get(url);
+};
+
+export const createComment = async (comment: any) => {
+  return apiClient.post('/comments', comment);
+};
+
+export const getWorkOrderComments = async (workOrderId: number) => {
+  return apiClient.get(`/workorders/${workOrderId}/comments`);
+};
+
+// Notifications
+export const getNotifications = async (userId?: number) => {
+  const url = userId ? `/notifications?userId=${userId}` : '/notifications';
+  return apiClient.get(url);
+};
+
+export const createNotification = async (notification: any) => {
+  return apiClient.post('/notifications', notification);
+};
+
+export const markNotificationAsRead = async (id: number) => {
+  return apiClient.put(`/notifications/${id}`, { read: true });
+};
+
+export const deleteNotification = async (id: number) => {
+  return apiClient.delete(`/notifications/${id}`);
+};
+
 // Work Orders
 export const getWorkOrders = async () => {
   return apiClient.get('/workorders');
