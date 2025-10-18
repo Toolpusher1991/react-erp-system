@@ -12,12 +12,11 @@ import {
 } from "react";
 import {
   authService,
-  type User,
   type LoginCredentials,
   type RegisterData,
   type LoginResult,
 } from "../services/auth";
-import type { Permissions, UserRole } from "../types";
+import type { User, Permissions, UserRole } from "../types";
 import { getPermissionsForRole } from "../utils/permissions";
 
 // Enhanced Interface mit JWT Backend Integration
@@ -50,22 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Map backend roles to frontend roles
-  const mapBackendRole = (backendRole: string): UserRole => {
-    const roleMapping: Record<string, UserRole> = {
-      ADMIN: "Admin",
-      E_SUPERVISOR: "E-Supervisor",
-      M_SUPERVISOR: "M-Supervisor",
-      MECHANIKER: "Mechaniker",
-      ELEKTRIKER: "Elektriker",
-      RSC: "RSC",
-    };
-    return roleMapping[backendRole] || "Mechaniker";
-  };
-
-  // Permissions basierend auf User-Rolle
+  // Permissions basierend auf User-Rolle (Backend gibt bereits UserRole zurück)
   const permissions = currentUser
-    ? getPermissionsForRole(mapBackendRole(currentUser.role))
+    ? getPermissionsForRole(currentUser.role)
     : null;
 
   // Initialize auth on mount
@@ -107,10 +93,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (result.success && result.data) {
         console.log("✅ Login successful, setting user:", result.data.user);
-        // Map JWT user to frontend user format
-        const mappedUser = {
-          ...result.data.user,
-          assignedAssets: result.data.user.assignedAssets || [],
+        // Backend user bereits im richtigen Format (id: number, role: UserRole, etc.)
+        const backendUser = result.data.user as any;
+        const mappedUser: User = {
+          id: backendUser.id,
+          name: backendUser.name,
+          email: backendUser.email,
+          role: backendUser.role,
+          status: backendUser.status || "Aktiv",
+          assignedAssets: backendUser.assignedAssets || [],
         };
         setCurrentUser(mappedUser);
         return true;

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
+import { createWorkOrder } from "../services/api";
+import { useToast } from "../components/ToastContainer";
 import type { SAPMaintenanceItem } from "../types";
 import * as XLSX from "xlsx";
 
@@ -12,10 +14,10 @@ function PreventiveMaintenance() {
     addSAPMaintenanceItems,
     deleteSAPMaintenanceItem,
     deleteAllSAPMaintenanceItems,
-    createWorkOrderFromSAP,
     users,
   } = useData();
-  const { currentUser, permissions } = useAuth();
+  const { currentUser } = useAuth();
+  const { showToast } = useToast();
 
   const [selectedAsset, setSelectedAsset] = useState<string>("");
   const [selectedTab, setSelectedTab] = useState<TabType>("");
@@ -307,24 +309,49 @@ function PreventiveMaintenance() {
     setAssignedTo(undefined);
   };
 
-  const submitWorkOrder = () => {
+  const submitWorkOrder = async () => {
     if (!selectedItem || !currentUser) return;
 
     try {
-      const newWO = createWorkOrderFromSAP(
-        selectedItem,
-        currentUser.id,
-        assignedTo
-      );
-      alert(
-        `✅ Work Order #${newWO.id} "${newWO.title}" erfolgreich erstellt!`
-      );
-      setShowCreateWO(false);
-      setSelectedItem(null);
-      setAssignedTo(undefined);
+      console.log("📝 Creating Work Order from PM Item:", selectedItem);
+
+      // Mapping SAP Item zu Work Order
+      const newWorkOrder = {
+        title: `${selectedItem.orderType} - ${selectedItem.description}`,
+        description: `SAP Order: ${selectedItem.orderNumber}\nOrder Type: ${selectedItem.orderType}\nWork Center: ${selectedItem.mainWorkCenter}\nFunctional Location: ${selectedItem.functionalLocation}\nDescription: ${selectedItem.description}\nStart Date: ${selectedItem.basicStartDate || "N/A"}`,
+        assetId: selectedItem.asset === "T207" ? 1 : selectedItem.asset === "T208" ? 2 : 3,
+        assetName: selectedItem.asset,
+        category: "Im Betrieb" as "Im Betrieb" | "Einlagerung & Rig Moves",
+        priority: "Hoch" as "Niedrig" | "Mittel" | "Hoch" | "Kritisch",
+        status: "Offen" as "Offen" | "In Bearbeitung" | "Erledigt" | "Abgebrochen",
+        assignedTo: assignedTo ? [assignedTo.toString()] : [],
+        startDate: selectedItem.basicStartDate 
+          ? new Date(selectedItem.basicStartDate) 
+          : new Date(),
+        dueDate: selectedItem.basicStartDate
+          ? new Date(new Date(selectedItem.basicStartDate).getTime() + 14 * 24 * 60 * 60 * 1000)
+          : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      console.log("📝 Sending to Backend:", newWorkOrder);
+
+      const result = await createWorkOrder(newWorkOrder);
+
+      console.log("✅ Backend Response:", result);
+
+      if (result.data) {
+        showToast(`Work Order erfolgreich aus SAP erstellt!`, "success");
+        setShowCreateWO(false);
+        setSelectedItem(null);
+        setAssignedTo(undefined);
+      } else {
+        throw new Error(result.error || "Failed to create work order");
+      }
     } catch (error) {
-      console.error("Error creating Work Order:", error);
-      alert("❌ Fehler beim Erstellen des Work Orders");
+      console.error("❌ Error creating Work Order:", error);
+      showToast("Fehler beim Erstellen des Work Orders", "error");
     }
   };
 

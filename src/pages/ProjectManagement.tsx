@@ -2,13 +2,22 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useData } from "../contexts/DataContext";
-import { filterAssetsForUser } from "../utils/permissions";
-import type { Project } from "../types";
+import {
+  getProjects,
+  getAssets,
+  createProject,
+  updateProject,
+} from "../services/api";
+import type { Project, Asset } from "../types";
 
 function ProjectManagement() {
   const { currentUser } = useAuth();
-  const { projects, assets, updateProject, addProject } = useData();
+
+  // Backend state
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [selectedAssetId, setSelectedAssetId] = useState<number | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -31,10 +40,48 @@ function ProjectManagement() {
     notes: "",
   });
 
-  // Sichtbare Assets für den User
-  const visibleAssets = currentUser
-    ? filterAssetsForUser(currentUser, assets)
-    : [];
+  // Load data from backend
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        console.log("🏗️ Loading Projects and Assets from Backend...");
+
+        const [projectsResult, assetsResult] = await Promise.all([
+          getProjects(),
+          getAssets(),
+        ]);
+
+        if (projectsResult.data) {
+          const data = projectsResult.data as any;
+          setProjects(data.projects || []);
+          console.log("✅ Projects loaded:", data.projects?.length);
+        }
+
+        if (assetsResult.data) {
+          const data = assetsResult.data as any;
+          setAssets(data.assets || []);
+          console.log("✅ Assets loaded:", data.assets?.length);
+        }
+      } catch (error) {
+        console.error("❌ Failed to load data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Sichtbare Assets für den User - Admin sieht alle
+  const visibleAssets =
+    currentUser?.role === "Admin"
+      ? assets
+      : assets.filter(
+          (asset) =>
+            currentUser?.assignedAssets?.includes(asset.id) ||
+            currentUser?.assignedAssets?.length === 0
+        );
 
   // Setze erste Anlage als Standard
   useEffect(() => {
@@ -106,64 +153,119 @@ function ProjectManagement() {
     setSelectedProject(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editingProject) return;
-    const updatedProject: Project = {
-      ...editingProject,
-      updatedAt: new Date().toISOString(),
-    };
-    updateProject(updatedProject);
-    setShowEditModal(false);
-    setEditingProject(null);
+
+    try {
+      const updatedProject: Project = {
+        ...editingProject,
+        updatedAt: new Date().toISOString(),
+      };
+
+      console.log("📝 Updating Project:", updatedProject);
+      const result = await updateProject(updatedProject.id, updatedProject);
+
+      if (result.data) {
+        console.log("✅ Project updated:", result.data);
+
+        // Lade Projekte neu vom Backend
+        const projectsResult = await getProjects();
+        if (projectsResult.data) {
+          const data = projectsResult.data as any;
+          setProjects(data.projects || []);
+        }
+
+        setShowEditModal(false);
+        setEditingProject(null);
+      } else {
+        throw new Error(result.error || "Failed to update project");
+      }
+    } catch (error) {
+      console.error("❌ Failed to update project:", error);
+      alert("Fehler beim Aktualisieren des Projekts");
+    }
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!selectedAssetId || !newProject.projectName) return;
 
-    const selectedAsset = visibleAssets.find((a) => a.id === selectedAssetId);
-    if (!selectedAsset) return;
+    try {
+      const selectedAsset = visibleAssets.find((a) => a.id === selectedAssetId);
+      if (!selectedAsset) return;
 
-    const projectToCreate: Project = {
-      id: Math.max(0, ...projects.map((p) => p.id)) + 1,
-      assetId: selectedAssetId,
-      assetName: selectedAsset.name,
-      projectName: newProject.projectName!,
-      status: (newProject.status as Project["status"]) || "Geplant",
-      priority: (newProject.priority as Project["priority"]) || "Normal",
-      progress: newProject.progress || 0,
-      description: newProject.description || "",
-      objectives: newProject.objectives || "",
-      scope: newProject.scope || "",
-      startDate: newProject.startDate || new Date().toISOString().split("T")[0],
-      endDate: newProject.endDate || new Date().toISOString().split("T")[0],
-      budget: newProject.budget || 0,
-      spent: newProject.spent || 0,
-      manager: newProject.manager || "",
-      risks: newProject.risks || "",
-      notes: newProject.notes || "",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+      const projectToCreate: Partial<Project> = {
+        assetId: selectedAssetId,
+        assetName: selectedAsset.name,
+        projectName: newProject.projectName!,
+        status: (newProject.status as Project["status"]) || "Geplant",
+        priority: (newProject.priority as Project["priority"]) || "Normal",
+        progress: newProject.progress || 0,
+        description: newProject.description || "",
+        objectives: newProject.objectives || "",
+        scope: newProject.scope || "",
+        startDate:
+          newProject.startDate || new Date().toISOString().split("T")[0],
+        endDate: newProject.endDate || new Date().toISOString().split("T")[0],
+        budget: newProject.budget || 0,
+        spent: newProject.spent || 0,
+        manager: newProject.manager || "",
+        risks: newProject.risks || "",
+        notes: newProject.notes || "",
+      };
 
-    addProject(projectToCreate);
-    setShowCreateModal(false);
-    setNewProject({
-      projectName: "",
-      status: "Geplant",
-      priority: "Normal",
-      progress: 0,
-      description: "",
-      objectives: "",
-      scope: "",
-      startDate: new Date().toISOString().split("T")[0],
-      endDate: "",
-      budget: 0,
-      spent: 0,
-      manager: "",
-      risks: "",
-      notes: "",
-    });
+      console.log("📝 Creating Project:", projectToCreate);
+      const result = await createProject(projectToCreate);
+
+      if (result.data) {
+        console.log("✅ Project created:", result.data);
+
+        // Lade Projekte neu vom Backend
+        const projectsResult = await getProjects();
+        if (projectsResult.data) {
+          const data = projectsResult.data as any;
+          setProjects(data.projects || []);
+        }
+
+        setShowCreateModal(false);
+        setNewProject({
+          projectName: "",
+          status: "Geplant",
+          priority: "Normal",
+          progress: 0,
+          description: "",
+          objectives: "",
+          scope: "",
+          startDate: new Date().toISOString().split("T")[0],
+          endDate: "",
+          budget: 0,
+          spent: 0,
+          manager: "",
+          risks: "",
+          notes: "",
+        });
+      } else {
+        throw new Error(result.error || "Failed to create project");
+      }
+    } catch (error) {
+      console.error("❌ Failed to create project:", error);
+      alert("Fehler beim Erstellen des Projekts");
+    }
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="container">
+        <h1>🏗️ Projekt Management</h1>
+        <div style={{ textAlign: "center", padding: "50px" }}>
+          <div>⏳ Lade Projekte vom Backend...</div>
+          <div style={{ marginTop: "10px", fontSize: "14px", color: "#666" }}>
+            Verbinde mit http://localhost:3001/api/projects
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container">

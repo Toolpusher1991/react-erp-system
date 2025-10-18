@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useData } from "../contexts/DataContext";
 import { filterAssetsForUser } from "../utils/permissions";
 import TaskList from "./TaskList";
 import type {
@@ -27,7 +26,7 @@ function CreateWorkOrderModal({
   onCreateWorkOrder,
 }: CreateWorkOrderModalProps) {
   const { currentUser } = useAuth();
-  const { addNotification, notifications } = useData();
+  // TODO: Notifications über Backend API implementieren
 
   // Nur Anlagen zeigen, die der User sehen darf
   const visibleAssets = currentUser

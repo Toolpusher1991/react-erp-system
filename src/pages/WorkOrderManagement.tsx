@@ -3,13 +3,20 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../components/ToastContainer";
 import { canAccessAsset } from "../utils/permissions";
-import { getWorkOrders, getAssets } from "../services/api";
+import {
+  getWorkOrders,
+  getAssets,
+  getUsers,
+  createWorkOrder,
+  updateWorkOrder,
+  deleteWorkOrder,
+} from "../services/api";
 import CreateWorkOrderModal from "../components/CreateWorkOrderModal";
 import EditWorkOrderModal from "../components/EditWorkOrderModal";
 import ConfirmationModal from "../components/ConfirmationModal";
 import CommentSection from "../components/CommentSection";
 import TaskList from "../components/TaskList";
-import type { WorkOrder, Asset, WorkOrderComment } from "../types";
+import type { WorkOrder, Asset, WorkOrderComment, User } from "../types";
 
 interface WorkOrderManagementProps {
   initialSelectedId?: number | null;
@@ -21,6 +28,7 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
   // Backend state
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Load data from backend
@@ -28,24 +36,28 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
     const loadData = async () => {
       try {
         setLoading(true);
-        console.log("📋 Loading Work Orders from Backend...");
+        console.log("📋 Loading Data from Backend...");
 
-        const [workOrdersResult, assetsResult] = await Promise.all([
-          getWorkOrders(),
-          getAssets(),
-        ]);
+        const [workOrdersResult, assetsResult, usersResult] = await Promise.all(
+          [getWorkOrders(), getAssets(), getUsers()]
+        );
 
         if (workOrdersResult.data) {
-          setWorkOrders(workOrdersResult.data.workOrders || []);
-          console.log(
-            "✅ Work Orders loaded:",
-            workOrdersResult.data.workOrders?.length
-          );
+          const data = workOrdersResult.data as any;
+          setWorkOrders(data.workOrders || []);
+          console.log("✅ Work Orders loaded:", data.workOrders?.length);
         }
 
         if (assetsResult.data) {
-          setAssets(assetsResult.data.assets || []);
-          console.log("✅ Assets loaded:", assetsResult.data.assets?.length);
+          const data = assetsResult.data as any;
+          setAssets(data.assets || []);
+          console.log("✅ Assets loaded:", data.assets?.length);
+        }
+
+        if (usersResult.data) {
+          const data = usersResult.data as any;
+          setUsers(data.users || []);
+          console.log("✅ Users loaded:", data.users?.length);
         }
       } catch (error) {
         console.error("❌ Failed to load data:", error);
@@ -137,36 +149,55 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
     ).length,
   };
 
-  const handleCreateWorkOrder = (newWO: Omit<WorkOrder, "id">) => {
-    const maxId =
-      workOrders.length > 0 ? Math.max(...workOrders.map((wo) => wo.id)) : 0;
-    const newId = maxId + 1;
-    const workOrderWithId: WorkOrder = { ...newWO, id: newId };
+  const handleCreateWorkOrder = async (newWO: Omit<WorkOrder, "id">) => {
+    try {
+      console.log("📝 Creating Work Order:", newWO);
 
-    addWorkOrder(workOrderWithId);
+      const result = await createWorkOrder(newWO);
 
-    // Toast statt Alert
-    showToast(`Work Order #${newId} erfolgreich erstellt!`, "success");
+      if (result.data) {
+        console.log("✅ Work Order created:", result.data);
 
-    // Notification: Assignment bei Erstellung
-    if (
-      newWO.assignedTo &&
-      currentUser &&
-      newWO.assignedTo !== currentUser.id
-    ) {
-      const notification = {
-        id: Math.max(...notifications.map((n) => n.id), 0) + 1,
-        userId: newWO.assignedTo,
-        type: "assignment" as const,
-        workOrderId: newId,
-        workOrderTitle: newWO.title,
-        message: `${currentUser.name} hat dir einen neuen Work Order zugewiesen`,
-        createdAt: new Date().toISOString(),
-        read: false,
-        createdBy: currentUser.id,
-        createdByName: currentUser.name,
-      };
-      addNotification(notification);
+        // Lade Work Orders neu vom Backend
+        const workOrdersResult = await getWorkOrders();
+        if (workOrdersResult.data) {
+          const data = workOrdersResult.data as any;
+          setWorkOrders(data.workOrders || []);
+          showToast(`Work Order erfolgreich erstellt!`, "success");
+        }
+      } else {
+        throw new Error(result.error || "Failed to create work order");
+      }
+    } catch (error) {
+      console.error("❌ Failed to create work order:", error);
+      showToast("Fehler beim Erstellen des Work Orders", "error");
+    }
+  };
+
+  // ========== UPDATE FUNKTION ==========
+  const handleUpdateWorkOrder = async (updatedWO: WorkOrder) => {
+    try {
+      console.log("📝 Updating Work Order:", updatedWO);
+
+      const result = await updateWorkOrder(updatedWO.id, updatedWO);
+
+      if (result.data) {
+        console.log("✅ Work Order updated:", result.data);
+
+        // Lade Work Orders neu vom Backend
+        const workOrdersResult = await getWorkOrders();
+        if (workOrdersResult.data) {
+          const data = workOrdersResult.data as any;
+          setWorkOrders(data.workOrders || []);
+          showToast(`Work Order erfolgreich aktualisiert!`, "success");
+          setEditingWO(null);
+        }
+      } else {
+        throw new Error(result.error || "Failed to update work order");
+      }
+    } catch (error) {
+      console.error("❌ Failed to update work order:", error);
+      showToast("Fehler beim Aktualisieren des Work Orders", "error");
     }
   };
 
@@ -194,59 +225,33 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
     setShowDeleteConfirm(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!selectedWO || !currentUser) return;
 
-    // Supervisor Notification beim Löschen
-    const supervisorRole =
-      selectedWO.type === "Elektrisch" ? "E-Supervisor" : "M-Supervisor";
-    const supervisor = users.find((u) => u.role === supervisorRole);
+    try {
+      const woId = selectedWO.id;
 
-    if (supervisor && supervisor.id !== currentUser.id) {
-      const notification = {
-        id: Math.max(...notifications.map((n) => n.id), 0) + 1,
-        userId: supervisor.id,
-        type: "work_order_deleted" as const,
-        workOrderId: selectedWO.id,
-        workOrderTitle: selectedWO.title,
-        message: `🗑️ ${currentUser.name} hat Work Order #${selectedWO.id} "${selectedWO.title}" gelöscht.`,
-        createdAt: new Date().toISOString(),
-        read: false,
-        createdBy: currentUser.id,
-        createdByName: currentUser.name,
-      };
-      addNotification(notification);
-    }
+      // Lösche Work Order über Backend API
+      const result = await deleteWorkOrder(selectedWO.id);
 
-    // Benachrichtige auch den Creator
-    if (selectedWO.createdBy !== currentUser.id) {
-      const creator = users.find((u) => u.id === selectedWO.createdBy);
-      if (creator) {
-        const notification = {
-          id: Math.max(...notifications.map((n) => n.id), 0) + 1,
-          userId: selectedWO.createdBy,
-          type: "work_order_deleted" as const,
-          workOrderId: selectedWO.id,
-          workOrderTitle: selectedWO.title,
-          message: `🗑️ ${currentUser.name} hat deinen Work Order #${selectedWO.id} "${selectedWO.title}" gelöscht.`,
-          createdAt: new Date().toISOString(),
-          read: false,
-          createdBy: currentUser.id,
-          createdByName: currentUser.name,
-        };
-        addNotification(notification);
+      if (result.data) {
+        // Lade Work Orders neu vom Backend
+        const workOrdersResult = await getWorkOrders();
+        if (workOrdersResult.data) {
+          const data = workOrdersResult.data as any;
+          setWorkOrders(data.workOrders || []);
+        }
+
+        showToast(`Work Order #${woId} wurde erfolgreich gelöscht!`, "success");
+        setSelectedWO(null);
+        setShowDeleteConfirm(false);
+      } else {
+        throw new Error(result.error || "Failed to delete work order");
       }
+    } catch (error) {
+      console.error("❌ Failed to delete work order:", error);
+      showToast("Fehler beim Löschen des Work Orders", "error");
     }
-
-    const woId = selectedWO.id;
-
-    // Lösche Work Order
-    deleteWorkOrder(selectedWO.id);
-    setSelectedWO(null);
-    setShowDeleteConfirm(false);
-
-    // Toast statt Alert
-    showToast(`Work Order #${woId} wurde erfolgreich gelöscht!`, "success");
   };
 
   // ========== FERTIGSTELLEN FUNKTION ==========
@@ -276,87 +281,42 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
     setShowCompleteConfirm(true);
   };
 
-  const confirmComplete = () => {
+  const confirmComplete = async () => {
     if (!selectedWO || !currentUser) return;
 
-    const hasTasks = selectedWO.tasks && selectedWO.tasks.length > 0;
-
-    // Update Status auf "Erledigt"
-    const updatedWO: WorkOrder = {
-      ...selectedWO,
-      status: "Erledigt",
-      completedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    // System-Kommentar
-    const statusComment: WorkOrderComment = {
-      id: Math.max(...comments.map((c) => c.id), 0) + 1,
-      workOrderId: selectedWO.id,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userRole: currentUser.role,
-      comment: "",
-      timestamp: new Date().toISOString(),
-      type: "status_change",
-      oldValue: selectedWO.status,
-      newValue: "Erledigt",
-    };
-    addComment(statusComment);
-
-    // Supervisor Notification
-    const supervisorRole =
-      selectedWO.type === "Elektrisch" ? "E-Supervisor" : "M-Supervisor";
-    const supervisor = users.find((u) => u.role === supervisorRole);
-
-    if (supervisor) {
-      const notification = {
-        id: Math.max(...notifications.map((n) => n.id), 0) + 1,
-        userId: supervisor.id,
-        type: "status_change" as const,
-        workOrderId: selectedWO.id,
-        workOrderTitle: selectedWO.title,
-        message: hasTasks
-          ? `${currentUser.name} hat Work Order #${
-              selectedWO.id
-            } fertiggestellt und alle ${
-              selectedWO.tasks!.length
-            } Aufgaben abgeschlossen. Bitte prüfen.`
-          : `${currentUser.name} hat Work Order #${selectedWO.id} als erledigt markiert. Bitte prüfen.`,
-        createdAt: new Date().toISOString(),
-        read: false,
-        createdBy: currentUser.id,
-        createdByName: currentUser.name,
+    try {
+      // Update Status auf "Erledigt"
+      const updatedWO: WorkOrder = {
+        ...selectedWO,
+        status: "Erledigt",
+        completedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
-      addNotification(notification);
+
+      // Sende Update ans Backend
+      const result = await updateWorkOrder(selectedWO.id, updatedWO);
+
+      if (result.data) {
+        // Lade Work Orders neu vom Backend
+        const workOrdersResult = await getWorkOrders();
+        if (workOrdersResult.data) {
+          const data = workOrdersResult.data as any;
+          setWorkOrders(data.workOrders || []);
+        }
+
+        showToast(
+          `Work Order #${selectedWO.id} erfolgreich fertiggestellt!`,
+          "success"
+        );
+        setSelectedWO(null);
+        setShowCompleteConfirm(false);
+      } else {
+        throw new Error(result.error || "Failed to complete work order");
+      }
+    } catch (error) {
+      console.error("❌ Failed to complete work order:", error);
+      showToast("Fehler beim Fertigstellen des Work Orders", "error");
     }
-
-    // Benachrichtige auch Creator wenn nicht der aktuelle User
-    if (selectedWO.createdBy !== currentUser.id) {
-      const notification = {
-        id: Math.max(...notifications.map((n) => n.id), 0) + 1,
-        userId: selectedWO.createdBy,
-        type: "status_change" as const,
-        workOrderId: selectedWO.id,
-        workOrderTitle: selectedWO.title,
-        message: `${currentUser.name} hat deinen Work Order #${selectedWO.id} fertiggestellt.`,
-        createdAt: new Date().toISOString(),
-        read: false,
-        createdBy: currentUser.id,
-        createdByName: currentUser.name,
-      };
-      addNotification(notification);
-    }
-
-    const woId = selectedWO.id;
-
-    // Speichern & Schließen
-    updateWorkOrder(updatedWO);
-    setSelectedWO(null);
-    setShowCompleteConfirm(false);
-
-    // Toast statt Alert
-    showToast(`Work Order #${woId} erfolgreich fertiggestellt!`, "success");
   };
 
   // Asset Icon
@@ -746,8 +706,12 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
                     tasks={selectedWO.tasks}
                     onUpdateTasks={(updatedTasks) => {
                       const updated = { ...selectedWO, tasks: updatedTasks };
-                      updateWorkOrder(updated);
+                      // TODO: Backend API für Task Update
                       setSelectedWO(updated);
+                      showToast(
+                        "Task Update noch nicht im Backend gespeichert",
+                        "warning"
+                      );
                     }}
                     readOnly={selectedWO.status === "Erledigt"}
                   />
@@ -813,7 +777,7 @@ function WorkOrderManagement({ initialSelectedId }: WorkOrderManagementProps) {
           workOrder={editingWO}
           users={users}
           onClose={() => setEditingWO(null)}
-          onUpdateWorkOrder={updateWorkOrder}
+          onUpdateWorkOrder={handleUpdateWorkOrder}
         />
       )}
 

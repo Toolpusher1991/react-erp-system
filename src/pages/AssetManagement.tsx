@@ -1,22 +1,86 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useData } from "../contexts/DataContext";
+import {
+  getAssets,
+  getWorkOrders,
+  updateAsset as updateAssetAPI,
+} from "../services/api";
 import { filterAssetsForUser } from "../utils/permissions";
 import EditAssetModal from "../components/EditAssetModal";
 import AssetHoverSidebar from "../components/AssetHoverSidebar";
-import type { Asset } from "../types";
+import type { Asset, WorkOrder } from "../types";
 
 function AssetManagement() {
   const { currentUser } = useAuth();
-  const { assets, updateAsset, workOrders } = useData();
+
+  // Backend state
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load data from backend
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [assetsResult, workOrdersResult] = await Promise.all([
+          getAssets(),
+          getWorkOrders(),
+        ]);
+
+        if (assetsResult.data) {
+          const data = assetsResult.data as any;
+          setAssets(data.assets || []);
+        }
+
+        if (workOrdersResult.data) {
+          const data = workOrdersResult.data as any;
+          setWorkOrders(data.workOrders || []);
+        }
+      } catch (error) {
+        console.error("❌ Failed to load data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+
+  // Update Asset via Backend API
+  const updateAsset = async (updatedAsset: Asset) => {
+    try {
+      console.log("📝 Updating Asset:", updatedAsset);
+      const result = await updateAssetAPI(updatedAsset.id, updatedAsset);
+
+      if (result.data) {
+        console.log("✅ Asset updated:", result.data);
+
+        // Lade Assets neu vom Backend
+        const assetsResult = await getAssets();
+        if (assetsResult.data) {
+          const data = assetsResult.data as any;
+          setAssets(data.assets || []);
+        }
+
+        setEditingAsset(null);
+      } else {
+        throw new Error(result.error || "Failed to update asset");
+      }
+    } catch (error) {
+      console.error("❌ Failed to update asset:", error);
+      alert("Fehler beim Aktualisieren der Anlage");
+    }
+  };
   const [hoveredAsset, setHoveredAsset] = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState<"Alle" | Asset["status"]>(
     "Alle"
   );
 
   // Timeout Ref für verzögertes Schließen
-  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const closeTimeoutRef = useRef<number | null>(null);
 
   const visibleAssets = currentUser
     ? filterAssetsForUser(currentUser, assets)

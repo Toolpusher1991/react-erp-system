@@ -132,6 +132,10 @@ export const updateWorkOrder = async (id: number, updates: any) => {
   return apiClient.put(`/workorders/${id}`, updates);
 };
 
+export const deleteWorkOrder = async (id: number) => {
+  return apiClient.delete(`/workorders/${id}`);
+};
+
 // Assets
 export const getAssets = async () => {
   return apiClient.get('/assets');
@@ -139,6 +143,23 @@ export const getAssets = async () => {
 
 export const updateAsset = async (id: number, updates: any) => {
   return apiClient.put(`/assets/${id}`, updates);
+};
+
+// Projects
+export const getProjects = async () => {
+  return apiClient.get('/projects');
+};
+
+export const createProject = async (project: any) => {
+  return apiClient.post('/projects', project);
+};
+
+export const updateProject = async (id: number, updates: any) => {
+  return apiClient.put(`/projects/${id}`, updates);
+};
+
+export const deleteProject = async (id: number) => {
+  return apiClient.delete(`/projects/${id}`);
 };
 
 // ==========================================

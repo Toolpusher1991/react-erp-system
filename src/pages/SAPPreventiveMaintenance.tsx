@@ -1,5 +1,7 @@
 import { useState } from "react";
 import * as XLSX from "xlsx";
+import { createWorkOrder } from "../services/api";
+import { useToast } from "../components/ToastContainer";
 
 interface MaintenanceItem {
   id: number;
@@ -32,12 +34,19 @@ interface RSCDocument {
 }
 
 function SAPPreventiveMaintenance() {
+  const { showToast } = useToast();
   const [maintenanceData, setMaintenanceData] = useState<MaintenanceItem[]>([]);
   const [overdueItems, setOverdueItems] = useState<MaintenanceItem[]>([]);
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState("");
   const [showRSCPreview, setShowRSCPreview] = useState(false);
   const [rscDocument, setRscDocument] = useState<RSCDocument | null>(null);
+
+  // Work Order Modal States
+  const [showWorkOrderModal, setShowWorkOrderModal] = useState(false);
+  const [selectedSapItem, setSelectedSapItem] =
+    useState<MaintenanceItem | null>(null);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
   const loadSampleData = () => {
     const today = new Date();
@@ -506,6 +515,72 @@ Bitte prüfen Sie die beigefügte Excel-Datei für vollständige Details.
       setError("");
       setShowRSCPreview(false);
       setRscDocument(null);
+    }
+  };
+
+  // ========== WORK ORDER FUNKTIONEN ==========
+  const handleOpenWorkOrderModal = (item: MaintenanceItem) => {
+    console.log("🔵 Opening Work Order Modal for:", item);
+    setSelectedSapItem(item);
+    setShowWorkOrderModal(true);
+  };
+
+  const handleCreateWorkOrderFromSap = async () => {
+    console.log("🔵 handleCreateWorkOrderFromSap called");
+    console.log("🔵 selectedSapItem:", selectedSapItem);
+
+    if (!selectedSapItem) {
+      console.log("❌ No selectedSapItem - aborting");
+      return;
+    }
+
+    try {
+      // SAP Order Number aus Equipment/Serial generieren
+      const orderNumber = selectedSapItem.serialNumber || `SAP-${Date.now()}`;
+
+      // Mapping SAP Item zu Work Order
+      const newWorkOrder = {
+        title: `${selectedSapItem.equipment} - ${selectedSapItem.certificationType}`,
+        description: `${selectedSapItem.description}\n\nOrder Nr: ${orderNumber}\nOrder Type: PM02\nWork Center: ${selectedSapItem.location}\nBeschreibung: ${selectedSapItem.description}\nDetails: ${selectedSapItem.equipment} ${selectedSapItem.certificationType} MODEL: ${selectedSapItem.serialNumber}\nKategorie: Double Ram Preventer\nAnlage: T208`,
+        assetId: 2, // T208 - Kann angepasst werden basierend auf location
+        assetName: "T208",
+        category: "Im Betrieb" as "Im Betrieb" | "Einlagerung & Rig Moves",
+        priority: selectedSapItem.priority as
+          | "Niedrig"
+          | "Mittel"
+          | "Hoch"
+          | "Kritisch",
+        status: "Offen" as
+          | "Offen"
+          | "In Bearbeitung"
+          | "Erledigt"
+          | "Abgebrochen",
+        assignedTo: selectedUsers,
+        startDate: selectedSapItem.dueDate || new Date(),
+        dueDate:
+          selectedSapItem.dueDate ||
+          new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      console.log("📝 Creating Work Order from SAP:", newWorkOrder);
+
+      const result = await createWorkOrder(newWorkOrder);
+
+      console.log("✅ Backend Response:", result);
+
+      if (result.data) {
+        showToast("Work Order erfolgreich aus SAP erstellt!", "success");
+        setShowWorkOrderModal(false);
+        setSelectedSapItem(null);
+        setSelectedUsers([]);
+      } else {
+        throw new Error(result.error || "Failed to create work order");
+      }
+    } catch (error) {
+      console.error("❌ Failed to create work order:", error);
+      showToast("Fehler beim Erstellen des Work Orders", "error");
     }
   };
 
@@ -1663,6 +1738,7 @@ Bitte prüfen Sie die beigefügte Excel-Datei für vollständige Details.
                     <th>Fällig seit</th>
                     <th>Priorität</th>
                     <th>Standort</th>
+                    <th>Aktionen</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1690,6 +1766,30 @@ Bitte prüfen Sie die beigefügte Excel-Datei für vollständige Details.
                         </span>
                       </td>
                       <td>{item.location}</td>
+                      <td>
+                        <button
+                          onClick={() => handleOpenWorkOrderModal(item)}
+                          style={{
+                            padding: "0.5rem 1rem",
+                            background: "#10b981",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "6px",
+                            fontWeight: "600",
+                            fontSize: "0.875rem",
+                            cursor: "pointer",
+                            transition: "background 0.3s",
+                          }}
+                          onMouseOver={(e) =>
+                            (e.currentTarget.style.background = "#059669")
+                          }
+                          onMouseOut={(e) =>
+                            (e.currentTarget.style.background = "#10b981")
+                          }
+                        >
+                          📋 WO ERSTELLEN
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1747,6 +1847,230 @@ Bitte prüfen Sie die beigefügte Excel-Datei für vollständige Details.
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* ========== WORK ORDER MODAL ========== */}
+        {showWorkOrderModal && selectedSapItem && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 1000,
+            }}
+            onClick={() => {
+              console.log("🔵 Modal background clicked - closing modal");
+              setShowWorkOrderModal(false);
+            }}
+          >
+            <div
+              style={{
+                background: "white",
+                borderRadius: "12px",
+                padding: "2rem",
+                maxWidth: "600px",
+                width: "90%",
+                maxHeight: "80vh",
+                overflow: "auto",
+                boxShadow: "0 4px 20px rgba(0, 0, 0, 0.2)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "1.5rem",
+                  paddingBottom: "1rem",
+                  borderBottom: "2px solid #e5e7eb",
+                }}
+              >
+                <h2 style={{ margin: 0, color: "#1e40af" }}>
+                  📋 Work Order aus SAP erstellen
+                </h2>
+                <button
+                  onClick={() => setShowWorkOrderModal(false)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    fontSize: "1.5rem",
+                    cursor: "pointer",
+                    color: "#6b7280",
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* SAP Daten Anzeige */}
+              <div
+                style={{
+                  background: "#fef3c7",
+                  padding: "1rem",
+                  borderRadius: "8px",
+                  marginBottom: "1.5rem",
+                  border: "1px solid #fbbf24",
+                }}
+              >
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <strong>Order Nr:</strong> {selectedSapItem.serialNumber}
+                </div>
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <strong>Order Type:</strong> PM02
+                </div>
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <strong>Work Center:</strong> {selectedSapItem.location}
+                </div>
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <strong>Beschreibung:</strong> {selectedSapItem.equipment} -{" "}
+                  {selectedSapItem.certificationType}
+                </div>
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <strong>Start Datum:</strong>{" "}
+                  {selectedSapItem.dueDate?.toLocaleDateString("de-DE") ||
+                    "N/A"}
+                </div>
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <strong>Fällig (Start + 14 Tage):</strong>{" "}
+                  {selectedSapItem.dueDate
+                    ? new Date(
+                        selectedSapItem.dueDate.getTime() +
+                          14 * 24 * 60 * 60 * 1000
+                      ).toLocaleDateString("de-DE")
+                    : "N/A"}
+                </div>
+                <div>
+                  <strong>Priorität:</strong>{" "}
+                  <span
+                    className={`priority-badge priority-${selectedSapItem.priority.toLowerCase()}`}
+                    style={{ marginLeft: "0.5rem" }}
+                  >
+                    {selectedSapItem.priority}
+                  </span>
+                </div>
+              </div>
+
+              {/* Details */}
+              <div style={{ marginBottom: "1.5rem" }}>
+                <strong style={{ display: "block", marginBottom: "0.5rem" }}>
+                  Details:
+                </strong>
+                <div
+                  style={{
+                    background: "#f9fafb",
+                    padding: "1rem",
+                    borderRadius: "6px",
+                    fontSize: "0.875rem",
+                    lineHeight: "1.6",
+                  }}
+                >
+                  {selectedSapItem.equipment}{" "}
+                  {selectedSapItem.certificationType} MODEL:{" "}
+                  {selectedSapItem.serialNumber}
+                </div>
+              </div>
+
+              {/* Kategorie & Anlage */}
+              <div style={{ marginBottom: "1.5rem" }}>
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <strong>Kategorie:</strong> Double Ram Preventer
+                </div>
+                <div>
+                  <strong>Anlage:</strong> T208
+                </div>
+              </div>
+
+              {/* User Auswahl */}
+              <div style={{ marginBottom: "1.5rem" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "600",
+                  }}
+                >
+                  Zuweisen an (optional):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Noch nicht zuweisen"
+                  value={selectedUsers.join(", ")}
+                  onChange={(e) =>
+                    setSelectedUsers(
+                      e.target.value
+                        .split(",")
+                        .map((u) => u.trim())
+                        .filter((u) => u)
+                    )
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    fontSize: "0.875rem",
+                  }}
+                />
+                <div
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "#6b7280",
+                    marginTop: "0.25rem",
+                  }}
+                >
+                  Namen mit Komma trennen oder leer lassen
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: "1rem",
+                  justifyContent: "flex-end",
+                }}
+              >
+                <button
+                  onClick={() => setShowWorkOrderModal(false)}
+                  style={{
+                    padding: "0.75rem 1.5rem",
+                    background: "#e5e7eb",
+                    color: "#374151",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  ABBRECHEN
+                </button>
+                <button
+                  onClick={handleCreateWorkOrderFromSap}
+                  style={{
+                    padding: "0.75rem 1.5rem",
+                    background: "#1e40af",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  🔧 WORK ORDER ERSTELLEN
+                </button>
+              </div>
             </div>
           </div>
         )}

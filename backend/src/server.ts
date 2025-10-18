@@ -2,7 +2,6 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import authRoutes from './routes/authRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -14,7 +13,7 @@ const PORT = process.env.PORT || 3001;
 // MIDDLEWARE
 // ==========================================
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || ['http://localhost:5173', 'http://localhost:5174'],
+  origin: ['http://localhost:5173', 'http://localhost:5174'],
   credentials: true,
 }));
 app.use(express.json());
@@ -78,6 +77,135 @@ const MOCK_USERS = [
   },
 ];
 
+let mockWorkOrders = [
+  {
+    id: 1,
+    title: 'Motor überhitzt',
+    description: 'Motor auf T207 läuft zu heiß, Kühlung prüfen.',
+    assetId: 1,
+    assetName: 'T207',
+    type: 'Mechanisch',
+    category: 'Im Betrieb',
+    priority: 'Hoch',
+    status: 'In Arbeit',
+    createdBy: 2,
+    createdByName: 'Anna E-Super',
+    assignedTo: 11,
+    assignedToName: 'T207 Mechaniker',
+    createdAt: '2025-10-10T08:30:00',
+    updatedAt: '2025-10-10T09:15:00',
+    materialRequired: false,
+    materialStatus: 'Nicht benötigt',
+  },
+  {
+    id: 2,
+    title: 'Elektrischer Ausfall Pumpe',
+    description: 'Pumpe auf T208 reagiert nicht, Verkabelung prüfen.',
+    assetId: 2,
+    assetName: 'T208',
+    type: 'Elektrisch',
+    category: 'Im Betrieb',
+    priority: 'Kritisch',
+    status: 'Zugewiesen',
+    createdBy: 3,
+    createdByName: 'Tom M-Super',
+    assignedTo: 10,
+    assignedToName: 'T207 Elektriker',
+    createdAt: '2025-10-10T10:00:00',
+    updatedAt: '2025-10-10T10:00:00',
+    materialRequired: false,
+    materialStatus: 'Nicht benötigt',
+  },
+];
+
+let mockAssets = [
+  {
+    id: 1,
+    name: 'T207',
+    type: 'Bohranlage',
+    status: 'Betrieb',
+    location: 'Feld Nord',
+    serialNumber: 'BA-T207-2023',
+    assignedUsers: [],
+    notes: 'Hauptbohranlage Standort Nord',
+  },
+  {
+    id: 2,
+    name: 'T208',
+    type: 'Bohranlage',
+    status: 'Betrieb',
+    location: 'Feld Nord',
+    serialNumber: 'BA-T208-2023',
+    assignedUsers: [],
+    notes: 'Hauptbohranlage Standort Nord',
+  },
+  {
+    id: 3,
+    name: 'T700',
+    type: 'Bohranlage',
+    status: 'Wartung',
+    location: 'Feld Ost',
+    serialNumber: 'BA-T700-2022',
+    assignedUsers: [],
+    notes: 'Geplante Wartung bis Ende des Monats',
+  },
+  {
+    id: 4,
+    name: 'T46',
+    type: 'Bohranlage',
+    status: 'Betrieb',
+    location: 'Feld Süd',
+    serialNumber: 'BA-T46-2021',
+    assignedUsers: [],
+    notes: 'Älteste Anlage im Betrieb',
+  },
+];
+
+let mockProjects = [
+  {
+    id: 1,
+    projectName: 'Wartung T207 Q4',
+    assetId: 1,
+    assetName: 'T207',
+    status: 'In Arbeit',
+    priority: 'Hoch',
+    progress: 65,
+    description: 'Quartalsweise Wartung der Bohranlage T207',
+    objectives: 'Alle Wartungsarbeiten planmäßig durchführen',
+    scope: 'Mechanische und elektrische Systeme',
+    startDate: '2025-10-01',
+    endDate: '2025-12-31',
+    budget: 50000,
+    spent: 32500,
+    manager: 'Anna E-Super',
+    risks: 'Wetterabhängig',
+    notes: 'Läuft nach Plan',
+    createdAt: '2025-10-01T08:00:00',
+    updatedAt: '2025-10-15T14:30:00',
+  },
+  {
+    id: 2,
+    projectName: 'Upgrade T208 Elektronik',
+    assetId: 2,
+    assetName: 'T208',
+    status: 'Geplant',
+    priority: 'Normal',
+    progress: 20,
+    description: 'Modernisierung der Steuerungselektronik',
+    objectives: 'Effizienz steigern, Ausfälle reduzieren',
+    scope: 'Steuerungssysteme und Sensorik',
+    startDate: '2025-11-01',
+    endDate: '2026-01-31',
+    budget: 75000,
+    spent: 15000,
+    manager: 'Tom M-Super',
+    risks: 'Lieferzeiten für Komponenten',
+    notes: 'Planung läuft',
+    createdAt: '2025-09-15T10:00:00',
+    updatedAt: '2025-10-10T16:00:00',
+  },
+];
+
 // ==========================================
 // ROUTES
 // ==========================================
@@ -112,14 +240,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // ==========================================
-// ROUTE MOUNTING
-// ==========================================
-
-// Mount Auth Routes
-app.use('/api/auth', authRoutes);
-
-// ==========================================
-// LEGACY AUTH ROUTES (TO BE REMOVED)
+// AUTH ROUTES
 // ==========================================
 
 // POST /api/auth/login
@@ -200,48 +321,6 @@ app.get('/api/users/:id', (req, res) => {
 
 // GET /api/workorders - Alle Work Orders
 app.get('/api/workorders', (req, res) => {
-  // TODO: Später aus Datenbank
-  const mockWorkOrders = [
-    {
-      id: 1,
-      title: 'Motor überhitzt',
-      description: 'Motor auf T207 läuft zu heiß, Kühlung prüfen.',
-      assetId: 1,
-      assetName: 'T207',
-      type: 'Mechanisch',
-      category: 'Im Betrieb',
-      priority: 'Hoch',
-      status: 'In Arbeit',
-      createdBy: 2,
-      createdByName: 'Anna E-Super',
-      assignedTo: 11,
-      assignedToName: 'T207 Mechaniker',
-      createdAt: '2025-10-10T08:30:00',
-      updatedAt: '2025-10-10T09:15:00',
-      materialRequired: false,
-      materialStatus: 'Nicht benötigt',
-    },
-    {
-      id: 2,
-      title: 'Elektrischer Ausfall Pumpe',
-      description: 'Pumpe auf T208 reagiert nicht, Verkabelung prüfen.',
-      assetId: 2,
-      assetName: 'T208',
-      type: 'Elektrisch',
-      category: 'Im Betrieb',
-      priority: 'Kritisch',
-      status: 'Zugewiesen',
-      createdBy: 3,
-      createdByName: 'Tom M-Super',
-      assignedTo: 12,
-      assignedToName: 'T208 Elektriker',
-      createdAt: '2025-10-10T10:00:00',
-      updatedAt: '2025-10-10T10:00:00',
-      materialRequired: false,
-      materialStatus: 'Nicht benötigt',
-    },
-  ];
-
   res.json({
     workOrders: mockWorkOrders,
     count: mockWorkOrders.length,
@@ -251,16 +330,18 @@ app.get('/api/workorders', (req, res) => {
 // GET /api/workorders/:id - Einzelner Work Order
 app.get('/api/workorders/:id', (req, res) => {
   const id = parseInt(req.params.id);
-  // TODO: Aus DB laden
-  res.json({
-    error: 'Not implemented yet',
-    message: 'Work Order Details coming soon',
-  });
+  const workOrder = mockWorkOrders.find((wo) => wo.id === id);
+  
+  if (!workOrder) {
+    return res.status(404).json({ error: 'Work Order nicht gefunden' });
+  }
+  
+  res.json(workOrder);
 });
 
 // POST /api/workorders - Neuer Work Order
 app.post('/api/workorders', (req, res) => {
-  const { title, description, assetId, type, priority } = req.body;
+  const { title, description, assetId, type, priority, category, assignedTo, createdBy } = req.body;
 
   if (!title || !description || !assetId) {
     return res.status(400).json({
@@ -268,20 +349,33 @@ app.post('/api/workorders', (req, res) => {
     });
   }
 
-  // TODO: In DB speichern
+  // Asset finden für Namen
+  const asset = mockAssets.find((a) => a.id === assetId);
+  const creator = MOCK_USERS.find((u) => u.id === createdBy);
+  const assignee = MOCK_USERS.find((u) => u.id === assignedTo);
+
   const newWorkOrder = {
-    id: Math.floor(Math.random() * 10000), // Temp ID
+    id: mockWorkOrders.length > 0 ? Math.max(...mockWorkOrders.map(wo => wo.id)) + 1 : 1,
     title,
     description,
     assetId,
+    assetName: asset?.name || 'Unbekannt',
     type: type || 'Sonstiges',
+    category: category || 'Geplant',
     priority: priority || 'Normal',
     status: 'Neu',
+    createdBy: createdBy || 1,
+    createdByName: creator?.name || 'System',
+    assignedTo: assignedTo || null,
+    assignedToName: assignee?.name || '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    materialRequired: false,
+    materialStatus: 'Nicht benötigt',
   };
 
-  console.log(`✅ Work Order created: ${title}`);
+  mockWorkOrders.push(newWorkOrder);
+  console.log(`✅ Work Order created: ${title} (ID: ${newWorkOrder.id})`);
 
   res.status(201).json({
     workOrder: newWorkOrder,
@@ -294,12 +388,45 @@ app.put('/api/workorders/:id', (req, res) => {
   const id = parseInt(req.params.id);
   const updates = req.body;
 
+  const index = mockWorkOrders.findIndex((wo) => wo.id === id);
+  
+  if (index === -1) {
+    return res.status(404).json({ error: 'Work Order nicht gefunden' });
+  }
+
+  // Work Order aktualisieren
+  mockWorkOrders[index] = {
+    ...mockWorkOrders[index],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+
   console.log(`✏️ Work Order ${id} updated:`, updates);
 
-  // TODO: In DB speichern
   res.json({
     message: 'Work Order aktualisiert',
-    workOrder: { id, ...updates },
+    workOrder: mockWorkOrders[index],
+  });
+});
+
+// DELETE /api/workorders/:id - Work Order löschen
+app.delete('/api/workorders/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+
+  const index = mockWorkOrders.findIndex((wo) => wo.id === id);
+  
+  if (index === -1) {
+    return res.status(404).json({ error: 'Work Order nicht gefunden' });
+  }
+
+  const deletedWO = mockWorkOrders[index];
+  mockWorkOrders.splice(index, 1);
+
+  console.log(`🗑️ Work Order ${id} deleted: ${deletedWO.title}`);
+
+  res.json({
+    message: 'Work Order erfolgreich gelöscht',
+    workOrder: deletedWO,
   });
 });
 
@@ -309,65 +436,150 @@ app.put('/api/workorders/:id', (req, res) => {
 
 // GET /api/assets - Alle Anlagen
 app.get('/api/assets', (req, res) => {
-  const mockAssets = [
-    {
-      id: 1,
-      name: 'T207',
-      type: 'Bohranlage',
-      status: 'Betrieb',
-      location: 'Feld Nord',
-      serialNumber: 'BA-T207-2023',
-      assignedUsers: [],
-      notes: 'Hauptbohranlage Standort Nord',
-    },
-    {
-      id: 2,
-      name: 'T208',
-      type: 'Bohranlage',
-      status: 'Betrieb',
-      location: 'Feld Nord',
-      serialNumber: 'BA-T208-2023',
-      assignedUsers: [],
-      notes: 'Hauptbohranlage Standort Nord',
-    },
-    {
-      id: 3,
-      name: 'T700',
-      type: 'Bohranlage',
-      status: 'Wartung',
-      location: 'Feld Ost',
-      serialNumber: 'BA-T700-2022',
-      assignedUsers: [],
-      notes: 'Geplante Wartung bis Ende des Monats',
-    },
-    {
-      id: 4,
-      name: 'T46',
-      type: 'Bohranlage',
-      status: 'Betrieb',
-      location: 'Feld Süd',
-      serialNumber: 'BA-T46-2021',
-      assignedUsers: [],
-      notes: 'Älteste Anlage im Betrieb',
-    },
-  ];
-
   res.json({
     assets: mockAssets,
     count: mockAssets.length,
   });
 });
 
-// PUT /api/assets/:id - Asset Status ändern
+// PUT /api/assets/:id - Asset aktualisieren
 app.put('/api/assets/:id', (req, res) => {
   const id = parseInt(req.params.id);
-  const { status, notes } = req.body;
+  const updates = req.body;
 
-  console.log(`✏️ Asset ${id} updated: status=${status}`);
+  const index = mockAssets.findIndex((a) => a.id === id);
+  
+  if (index === -1) {
+    return res.status(404).json({ error: 'Asset nicht gefunden' });
+  }
+
+  mockAssets[index] = {
+    ...mockAssets[index],
+    ...updates,
+  };
+
+  console.log(`✏️ Asset ${id} updated:`, updates);
 
   res.json({
     message: 'Asset aktualisiert',
-    asset: { id, status, notes },
+    asset: mockAssets[index],
+  });
+});
+
+// ==========================================
+// PROJECT ROUTES
+// ==========================================
+
+// GET /api/projects - Alle Projekte
+app.get('/api/projects', (req, res) => {
+  res.json({
+    projects: mockProjects,
+    count: mockProjects.length,
+  });
+});
+
+// POST /api/projects - Neues Projekt
+app.post('/api/projects', (req, res) => {
+  const { 
+    projectName, 
+    assetId, 
+    priority, 
+    status,
+    progress,
+    description,
+    objectives,
+    scope,
+    startDate,
+    endDate,
+    budget,
+    spent,
+    manager,
+    risks,
+    notes
+  } = req.body;
+
+  if (!projectName || !assetId) {
+    return res.status(400).json({
+      error: 'Projektname und AssetId sind erforderlich',
+    });
+  }
+
+  const asset = mockAssets.find((a) => a.id === assetId);
+
+  const newProject = {
+    id: mockProjects.length > 0 ? Math.max(...mockProjects.map(p => p.id)) + 1 : 1,
+    projectName,
+    assetId,
+    assetName: asset?.name || 'Unbekannt',
+    status: status || 'Geplant',
+    priority: priority || 'Normal',
+    progress: progress || 0,
+    description: description || '',
+    objectives: objectives || '',
+    scope: scope || '',
+    startDate: startDate || new Date().toISOString().split('T')[0],
+    endDate: endDate || '',
+    budget: budget || 0,
+    spent: spent || 0,
+    manager: manager || '',
+    risks: risks || '',
+    notes: notes || '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  mockProjects.push(newProject);
+  console.log(`✅ Project created: ${projectName} (ID: ${newProject.id})`);
+
+  res.status(201).json({
+    project: newProject,
+    message: 'Projekt erfolgreich erstellt',
+  });
+});
+
+// PUT /api/projects/:id - Projekt aktualisieren
+app.put('/api/projects/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const updates = req.body;
+
+  const index = mockProjects.findIndex((p) => p.id === id);
+  
+  if (index === -1) {
+    return res.status(404).json({ error: 'Projekt nicht gefunden' });
+  }
+
+  // Projekt aktualisieren
+  mockProjects[index] = {
+    ...mockProjects[index],
+    ...updates,
+  };
+
+  console.log(`✏️ Project ${id} updated:`, updates);
+
+  res.json({
+    message: 'Projekt aktualisiert',
+    project: mockProjects[index],
+  });
+});
+
+// DELETE /api/projects/:id - Projekt löschen
+app.delete('/api/projects/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+
+  const index = mockProjects.findIndex((p) => p.id === id);
+  
+  if (index === -1) {
+    return res.status(404).json({ error: 'Projekt nicht gefunden' });
+  }
+
+  const deletedProject = mockProjects[index];
+  mockProjects.splice(index, 1);
+
+  console.log(`🗑️ Project ${id} deleted: ${deletedProject.projectName}`);
+
+  res.json({
+    message: 'Projekt erfolgreich gelöscht',
+    project: deletedProject,
   });
 });
 
@@ -399,126 +611,6 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 });
 
 // ==========================================
-// WORK ORDER ROUTES
-// ==========================================
-
-// GET /api/workorders - Alle Work Orders
-app.get('/api/workorders', (req, res) => {
-  // TODO: Später aus Datenbank
-  const mockWorkOrders = [
-    {
-      id: 1,
-      title: 'Motor überhitzt',
-      description: 'Motor auf T207 läuft zu heiß, Kühlung prüfen.',
-      assetId: 1,
-      assetName: 'T207',
-      type: 'Mechanisch',
-      category: 'Im Betrieb',
-      priority: 'Hoch',
-      status: 'In Arbeit',
-      createdBy: 2,
-      createdByName: 'Anna E-Super',
-      assignedTo: 11,
-      assignedToName: 'T207 Mechaniker',
-      createdAt: '2025-10-10T08:30:00',
-      updatedAt: '2025-10-10T09:15:00',
-      materialRequired: false,
-      materialStatus: 'Nicht benötigt',
-    },
-    {
-      id: 2,
-      title: 'Elektrischer Ausfall Pumpe',
-      description: 'Pumpe auf T208 reagiert nicht, Verkabelung prüfen.',
-      assetId: 2,
-      assetName: 'T208',
-      type: 'Elektrisch',
-      category: 'Im Betrieb',
-      priority: 'Kritisch',
-      status: 'Zugewiesen',
-      createdBy: 3,
-      createdByName: 'Tom M-Super',
-      assignedTo: 12,
-      assignedToName: 'T208 Elektriker',
-      createdAt: '2025-10-10T10:00:00',
-      updatedAt: '2025-10-10T10:00:00',
-      materialRequired: false,
-      materialStatus: 'Nicht benötigt',
-    },
-  ];
-
-  console.log('📋 Returning Work Orders:', mockWorkOrders.length);
-  res.json({
-    workOrders: mockWorkOrders,
-    count: mockWorkOrders.length,
-  });
-});
-
-// POST /api/workorders - Neuer Work Order
-app.post('/api/workorders', (req, res) => {
-  const { title, description, assetId, type, priority } = req.body;
-
-  if (!title || !description || !assetId) {
-    return res.status(400).json({
-      error: 'Titel, Beschreibung und AssetId sind erforderlich',
-    });
-  }
-
-  const newWorkOrder = {
-    id: Math.floor(Math.random() * 10000),
-    title,
-    description,
-    assetId,
-    type: type || 'Sonstiges',
-    priority: priority || 'Normal',
-    status: 'Neu',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  console.log(`✅ Work Order created: ${title}`);
-  res.status(201).json({
-    workOrder: newWorkOrder,
-    message: 'Work Order erfolgreich erstellt',
-  });
-});
-
-// ==========================================
-// ASSET ROUTES
-// ==========================================
-
-// GET /api/assets - Alle Anlagen
-app.get('/api/assets', (req, res) => {
-  const mockAssets = [
-    {
-      id: 1,
-      name: 'T207',
-      type: 'Bohranlage',
-      status: 'Betrieb',
-      location: 'Feld Nord',
-      serialNumber: 'BA-T207-2023',
-      assignedUsers: [],
-      notes: 'Hauptbohranlage Standort Nord',
-    },
-    {
-      id: 2,
-      name: 'T208',
-      type: 'Bohranlage',
-      status: 'Betrieb',
-      location: 'Feld Nord',
-      serialNumber: 'BA-T208-2023',
-      assignedUsers: [],
-      notes: 'Hauptbohranlage Standort Nord',
-    },
-  ];
-
-  console.log('🏭 Returning Assets:', mockAssets.length);
-  res.json({
-    assets: mockAssets,
-    count: mockAssets.length,
-  });
-});
-
-// ==========================================
 // START SERVER
 // ==========================================
 app.listen(PORT, () => {
@@ -530,15 +622,22 @@ app.listen(PORT, () => {
   console.log(`🔗 CORS Origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
   console.log(`⏰ Started at:  ${new Date().toLocaleString('de-DE')}`);
   console.log('\n📚 Available Endpoints:');
-  console.log('   GET  /');
-  console.log('   GET  /api/health');
-  console.log('   POST /api/auth/login');
-  console.log('   GET  /api/auth/me');
-  console.log('   GET  /api/users');
-  console.log('   GET  /api/users/:id');
-  console.log('   GET  /api/workorders');
-  console.log('   POST /api/workorders');
-  console.log('   GET  /api/assets');
+  console.log('   GET    /');
+  console.log('   GET    /api/health');
+  console.log('   POST   /api/auth/login');
+  console.log('   GET    /api/auth/me');
+  console.log('   GET    /api/users');
+  console.log('   GET    /api/users/:id');
+  console.log('   GET    /api/workorders');
+  console.log('   POST   /api/workorders');
+  console.log('   PUT    /api/workorders/:id');
+  console.log('   DELETE /api/workorders/:id');
+  console.log('   GET    /api/assets');
+  console.log('   PUT    /api/assets/:id');
+  console.log('   GET    /api/projects');
+  console.log('   POST   /api/projects');
+  console.log('   PUT    /api/projects/:id');
+  console.log('   DELETE /api/projects/:id');
   console.log('='.repeat(70) + '\n');
 });
 
