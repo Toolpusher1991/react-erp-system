@@ -318,18 +318,36 @@ function PreventiveMaintenance() {
       // Mapping SAP Item zu Work Order
       const newWorkOrder = {
         title: `${selectedItem.orderType} - ${selectedItem.description}`,
-        description: `SAP Order: ${selectedItem.orderNumber}\nOrder Type: ${selectedItem.orderType}\nWork Center: ${selectedItem.mainWorkCenter}\nFunctional Location: ${selectedItem.functionalLocation}\nDescription: ${selectedItem.description}\nStart Date: ${selectedItem.basicStartDate || "N/A"}`,
-        assetId: selectedItem.asset === "T207" ? 1 : selectedItem.asset === "T208" ? 2 : 3,
+        description: `SAP Order: ${selectedItem.orderNumber}\nOrder Type: ${
+          selectedItem.orderType
+        }\nWork Center: ${selectedItem.mainWorkCenter}\nFunctional Location: ${
+          selectedItem.functionalLocation
+        }\nDescription: ${selectedItem.description}\nStart Date: ${
+          selectedItem.basicStartDate || "N/A"
+        }`,
+        assetId:
+          selectedItem.asset === "T207"
+            ? 1
+            : selectedItem.asset === "T208"
+            ? 2
+            : 3,
         assetName: selectedItem.asset,
         category: "Im Betrieb" as "Im Betrieb" | "Einlagerung & Rig Moves",
         priority: "Hoch" as "Niedrig" | "Mittel" | "Hoch" | "Kritisch",
-        status: "Offen" as "Offen" | "In Bearbeitung" | "Erledigt" | "Abgebrochen",
+        status: "Offen" as
+          | "Offen"
+          | "In Bearbeitung"
+          | "Erledigt"
+          | "Abgebrochen",
         assignedTo: assignedTo ? [assignedTo.toString()] : [],
-        startDate: selectedItem.basicStartDate 
-          ? new Date(selectedItem.basicStartDate) 
+        startDate: selectedItem.basicStartDate
+          ? new Date(selectedItem.basicStartDate)
           : new Date(),
         dueDate: selectedItem.basicStartDate
-          ? new Date(new Date(selectedItem.basicStartDate).getTime() + 14 * 24 * 60 * 60 * 1000)
+          ? new Date(
+              new Date(selectedItem.basicStartDate).getTime() +
+                14 * 24 * 60 * 60 * 1000
+            )
           : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         createdAt: new Date(),
         updatedAt: new Date(),

@@ -69,6 +69,7 @@ model Asset {
   // Relations
   workOrders     WorkOrder[]
   assignedUsers  UserAsset[]
+  projects       Project[]
 
   @@map("assets")
 }
@@ -320,4 +321,48 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   @@map("refresh_tokens")
+}
+
+// ==========================================
+// PROJECT MODEL
+// ==========================================
+
+model Project {
+  id          Int             @id @default(autoincrement())
+  assetId     Int
+  projectName String
+  status      ProjectStatus   @default(GEPLANT)
+  progress    Int             @default(0)
+  budget      Float
+  spent       Float           @default(0)
+  startDate   DateTime
+  endDate     DateTime
+  priority    ProjectPriority @default(NORMAL)
+  manager     String
+  description String
+  objectives  String
+  scope       String
+  notes       String?
+  risks       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  asset       Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  GEPLANT
+  IN_ARBEIT
+  PAUSIERT
+  ABGESCHLOSSEN
+}
+
+enum ProjectPriority {
+  NIEDRIG
+  NORMAL
+  HOCH
+  KRITISCH
 }
